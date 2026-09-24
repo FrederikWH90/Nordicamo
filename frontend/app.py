@@ -31,7 +31,7 @@ st.set_page_config(
     page_title="NORDICAMO - Nordic Alternative Media Observatory",
     page_icon=Image.open(WEBSITE_ICON_PATH) if WEBSITE_ICON_PATH.exists() else "📰",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"
 )
 
 # Session defaults for quick country navigation and page selection
@@ -102,6 +102,10 @@ def build_topbar_html(current_page: str) -> str:
             <nav class="topbar-nav">
                 {links_html}
             </nav>
+            <details class="mobile-menu">
+                <summary aria-label="Open navigation menu"><span>Menu</span><span aria-hidden="true">☰</span></summary>
+                <nav class="mobile-menu-panel" aria-label="Main navigation">{links_html}</nav>
+            </details>
         </div>
     </div>
     """
@@ -433,6 +437,9 @@ st.markdown("""
         align-items: center;
         flex-wrap: wrap;
         justify-content: flex-end;
+    }
+    .mobile-menu {
+        display: none;
     }
 	    .nav-link {
 	        font-family: 'Manrope', 'Helvetica', 'Arial', sans-serif;
@@ -840,7 +847,137 @@ st.markdown("""
         text-decoration: underline;
     }
 
-    @media (max-width: 720px) {
+    @media (max-width: 900px) {
+        .topbar {
+            padding: 7px 0;
+        }
+        .topbar-inner {
+            padding: 0 14px;
+            gap: 12px;
+        }
+        .topbar-logo img {
+            display: block;
+            height: 38px;
+            max-width: min(52vw, 210px);
+            object-fit: contain;
+            object-position: left center;
+        }
+        .topbar-nav {
+            display: none;
+        }
+        .mobile-menu {
+            display: block;
+            position: relative;
+            margin-left: auto;
+        }
+        .mobile-menu summary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            min-width: 88px;
+            min-height: 44px;
+            padding: 0 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 9px;
+            background: #fff;
+            color: #0f3855;
+            font-size: 0.9rem;
+            font-weight: 700;
+            list-style: none;
+            cursor: pointer;
+        }
+        .mobile-menu summary::-webkit-details-marker {
+            display: none;
+        }
+        .mobile-menu-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            z-index: 1100;
+            display: flex;
+            flex-direction: column;
+            min-width: min(260px, calc(100vw - 28px));
+            padding: 8px;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 12px 28px rgba(15, 56, 85, 0.18);
+        }
+        .mobile-menu-panel .nav-link {
+            display: block;
+            min-height: 44px;
+            padding: 11px 12px;
+            border-radius: 8px;
+        }
+        .stMainBlockContainer {
+            padding: 68px 14px 24px !important;
+            max-width: 100vw;
+            overflow-x: clip;
+        }
+        .block-container {
+            padding: 0 !important;
+            max-width: 100%;
+        }
+        .main-header {
+            font-size: clamp(1.65rem, 7vw, 2rem);
+            overflow-wrap: anywhere;
+        }
+        .section-title {
+            font-size: 1.2rem;
+            line-height: 1.3;
+        }
+        .hero {
+            padding: 18px 16px;
+            border-radius: 12px;
+        }
+        .about-card.top-row,
+        .about-card.bottom-row {
+            min-height: 0;
+        }
+        .about-card {
+            padding: 14px;
+        }
+        .media-card {
+            min-height: 0;
+            padding: 14px;
+        }
+        .stPlotlyChart {
+            padding: 6px !important;
+            max-width: 100%;
+        }
+        [data-testid="stDataFrame"],
+        .workshop-preview-table-wrap {
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .workshop-preview-table {
+            min-width: 680px;
+        }
+        .workshop-preview-table td:nth-child(6) {
+            min-width: 180px;
+        }
+        .explorer-control-bar {
+            top: 62px;
+            padding: 9px 10px 2px;
+        }
+        .stButton > button,
+        div[data-testid="stFormSubmitButton"] > button {
+            min-height: 44px;
+        }
+        .stTextInput input,
+        .stTextArea textarea,
+        .stDateInput input,
+        div[data-baseweb="select"] [role="combobox"] {
+            font-size: 16px !important;
+        }
+        div[data-baseweb="select"] [role="combobox"] {
+            min-height: 44px;
+        }
+        .footer-bar {
+            padding: 12px;
+        }
         .research-actions-intro {
             display: block;
         }
@@ -857,6 +994,50 @@ st.markdown("""
         .research-action:first-child {
             border-top: 0;
             padding-top: 4px;
+        }
+    }
+
+    @media (max-width: 520px) {
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+            gap: 10px !important;
+        }
+        [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        [data-testid="stHorizontalBlock"] > [data-testid="column"]:has(.landing-kpi) {
+            flex: 1 1 calc(50% - 6px) !important;
+            width: calc(50% - 6px) !important;
+        }
+        .landing-kpi {
+            min-height: 68px;
+            padding: 5px 2px;
+            gap: 4px;
+        }
+        .landing-kpi-label {
+            font-size: 0.76rem;
+            line-height: 1.25;
+        }
+        .landing-kpi-value {
+            font-size: clamp(1.25rem, 7vw, 1.7rem);
+        }
+        .about-intro,
+        .subtle {
+            overflow-wrap: anywhere;
+        }
+        .mobile-menu-panel .nav-link.cta {
+            text-align: center;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            scroll-behavior: auto !important;
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
         }
     }
 
