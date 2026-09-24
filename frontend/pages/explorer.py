@@ -229,8 +229,8 @@ def _plot(fig: go.Figure) -> None:
         height=min(int(current_height), 390 if is_heatmap else 340),
         font={"size": 11},
     )
-    fig.update_xaxes(tickfont={"size": 10}, titlefont={"size": 11})
-    fig.update_yaxes(tickfont={"size": 10}, titlefont={"size": 11})
+    fig.update_xaxes(tickfont={"size": 10})
+    fig.update_yaxes(tickfont={"size": 10})
     st.plotly_chart(
         fig,
         use_container_width=True,

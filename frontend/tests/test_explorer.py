@@ -184,5 +184,25 @@ class TestExplorerHelpers(unittest.TestCase):
         self.assertEqual(_partisan_label(None), "All orientations")
         self.assertEqual(_partisan_label("Right"), "Right")
 
+    def test_plot_renders_scatter_and_heatmap_with_valid_plotly_properties(self):
+        import plotly.graph_objects as go
+
+        from pages.explorer import _plot
+
+        figures = [
+            go.Figure(data=[go.Scatter(x=[1, 2], y=[3, 4])], layout={"height": 430}),
+            go.Figure(
+                data=[go.Heatmap(z=[[1, 0.5], [0.5, 1]])],
+                layout={"height": 640},
+            ),
+        ]
+        with patch("pages.explorer.st.plotly_chart") as plotly_chart:
+            for figure in figures:
+                _plot(figure)
+
+        self.assertEqual(plotly_chart.call_count, 2)
+        self.assertEqual(figures[0].layout.height, 340)
+        self.assertEqual(figures[1].layout.height, 390)
+
 if __name__ == "__main__":
     unittest.main()
