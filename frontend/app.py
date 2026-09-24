@@ -145,6 +145,45 @@ st.markdown("""
         line-height: 1.5;
     }
 
+    /* Keep filter controls readable even when the browser or Streamlit theme is dark. */
+    div[data-testid="stSegmentedControl"] button,
+    div[data-testid="stRadio"] label {
+        color: #243447 !important;
+    }
+    div[data-testid="stSegmentedControl"] button {
+        background-color: #ffffff !important;
+        border-color: #cbd5df !important;
+    }
+    div[data-testid="stSegmentedControl"] button[aria-pressed="true"] {
+        background-color: #1f77b4 !important;
+        border-color: #1f77b4 !important;
+        color: #ffffff !important;
+    }
+    div[data-testid="stSegmentedControl"] button:not([aria-pressed="true"]):hover,
+    div[data-testid="stSegmentedControl"] button:not([aria-pressed="true"]):focus-visible {
+        border-color: #155d8f !important;
+        color: #173f5f !important;
+    }
+    div[data-baseweb="popover"],
+    div[data-baseweb="popover"] > div,
+    div[data-baseweb="menu"],
+    ul[role="listbox"] {
+        background-color: #ffffff !important;
+        color: #243447 !important;
+    }
+    li[role="option"],
+    div[role="option"] {
+        background-color: #ffffff !important;
+        color: #243447 !important;
+    }
+    li[role="option"]:hover,
+    div[role="option"]:hover,
+    li[role="option"][aria-selected="true"],
+    div[role="option"][aria-selected="true"] {
+        background-color: #e8f1f8 !important;
+        color: #173f5f !important;
+    }
+
     /* Container spacing */
     .block-container {
         padding: calc(var(--space-6) + 72px) var(--space-5) var(--space-6);
