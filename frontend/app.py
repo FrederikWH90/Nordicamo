@@ -911,12 +911,12 @@ st.markdown("""
             border-radius: 8px;
         }
         .stMainBlockContainer {
-            padding: 68px 14px 24px !important;
+            padding: 0 !important;
             max-width: 100vw;
             overflow-x: clip;
         }
         .block-container {
-            padding: 0 !important;
+            padding: 68px 18px 24px !important;
             max-width: 100%;
         }
         .main-header {
@@ -943,8 +943,9 @@ st.markdown("""
             padding: 14px;
         }
         .stPlotlyChart {
-            padding: 6px !important;
+            padding: 2px !important;
             max-width: 100%;
+            overflow: hidden !important;
         }
         [data-testid="stDataFrame"],
         .workshop-preview-table-wrap {
@@ -998,6 +999,9 @@ st.markdown("""
     }
 
     @media (max-width: 520px) {
+        .block-container {
+            padding: 68px 16px 22px !important;
+        }
         [data-testid="stHorizontalBlock"] {
             flex-wrap: wrap !important;
             gap: 10px !important;
@@ -1022,6 +1026,15 @@ st.markdown("""
         }
         .landing-kpi-value {
             font-size: clamp(1.25rem, 7vw, 1.7rem);
+        }
+        .stPlotlyChart .xtick text,
+        .stPlotlyChart .ytick text,
+        .stPlotlyChart .legend text {
+            font-size: 10px !important;
+        }
+        .stPlotlyChart .modebar {
+            transform: scale(0.85);
+            transform-origin: top right;
         }
         .about-intro,
         .subtle {

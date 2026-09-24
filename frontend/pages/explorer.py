@@ -221,11 +221,20 @@ def _similarity_color_bounds(matrix: pd.DataFrame) -> tuple[float, float]:
 
 
 def _plot(fig: go.Figure) -> None:
-    """Render plotly chart with zoom-friendly config."""
+    """Render a compact, container-sized Plotly chart."""
+    is_heatmap = any(getattr(trace, "type", None) == "heatmap" for trace in fig.data)
+    current_height = fig.layout.height or 360
+    fig.update_layout(
+        autosize=True,
+        height=min(int(current_height), 390 if is_heatmap else 340),
+        font={"size": 11},
+    )
+    fig.update_xaxes(tickfont={"size": 10}, titlefont={"size": 11})
+    fig.update_yaxes(tickfont={"size": 10}, titlefont={"size": 11})
     st.plotly_chart(
         fig,
         use_container_width=True,
-        config={"scrollZoom": True, "responsive": True, "displaylogo": False},
+        config={"scrollZoom": False, "responsive": True, "displaylogo": False},
     )
 
 

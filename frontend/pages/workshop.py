@@ -199,7 +199,7 @@ def _render_project_chart(
             frame = pd.DataFrame(traces)
             frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
             fig = px.line(frame, x="date", y="count", color="country", markers=True)
-            fig.update_layout(height=380, xaxis_title="Date", yaxis_title="Indexed articles", hovermode="x unified")
+            fig.update_layout(height=320, xaxis_title="Date", yaxis_title="Indexed articles", hovermode="x unified", font={"size": 11})
             st.plotly_chart(fig, use_container_width=True, config={"displaylogo": False})
         else:
             st.info("No chart data is available for this selection.")
@@ -211,7 +211,7 @@ def _render_project_chart(
         if not frame.empty and {"domain", "count"}.issubset(frame.columns):
             frame = frame.sort_values("count")
             fig = px.bar(frame, x="count", y="domain", orientation="h")
-            fig.update_layout(height=380, xaxis_title="Indexed articles", yaxis_title="Outlet")
+            fig.update_layout(height=320, xaxis_title="Indexed articles", yaxis_title="Outlet", font={"size": 11})
             st.plotly_chart(fig, use_container_width=True, config={"displaylogo": False})
         else:
             st.info("No chart data is available for this selection.")
@@ -232,7 +232,7 @@ def _render_project_chart(
                 frame = frame[frame["category"].isin(categories)]
             frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
             fig = px.line(frame, x="date", y="count", color="category")
-            fig.update_layout(height=380, xaxis_title="Date", yaxis_title="Indexed articles", hovermode="x unified")
+            fig.update_layout(height=320, xaxis_title="Date", yaxis_title="Indexed articles", hovermode="x unified", font={"size": 11})
             st.plotly_chart(fig, use_container_width=True, config={"displaylogo": False})
         else:
             st.info("No chart data is available for this selection.")

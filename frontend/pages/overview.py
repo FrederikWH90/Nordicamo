@@ -381,7 +381,7 @@ def show_overview_page() -> None:
         fig.update_layout(
             xaxis_title="Time",
             yaxis_title="Number of Articles",
-            height=450,
+            height=320,
             hovermode="x unified",
             legend=dict(
                 orientation="h",
@@ -391,7 +391,8 @@ def show_overview_page() -> None:
                 x=0.5,
                 font=dict(size=12),
             ),
-            margin=dict(b=50, t=40, l=50, r=50),
+            margin=dict(b=42, t=38, l=42, r=18),
+            font=dict(size=11),
         )
         st.plotly_chart(fig, use_container_width=True)
         if incomplete_month_hidden:
@@ -425,8 +426,10 @@ def show_overview_page() -> None:
             fig.update_layout(
                 xaxis_title="Time",
                 yaxis_title="Number of Articles",
-                height=450,
+                height=320,
                 hovermode="x unified",
+                margin=dict(b=42, t=30, l=42, r=18),
+                font=dict(size=11),
             )
             st.plotly_chart(fig, use_container_width=True)
             if incomplete_month_hidden:
