@@ -17,9 +17,9 @@ import streamlit.components.v1 as components
 from PIL import Image, ImageChops
 
 from analytics import build_umami_bootstrap_html
-from navigation import ALLOWED_PAGES, LEGACY_PAGE_ALIASES, TOPBAR_NAV_ITEMS
+from navigation import ALLOWED_PAGES, LEGACY_PAGE_ALIASES, TOPBAR_NAV_ITEMS, country_from_query_param
 from pages.about import show_about_page
-from pages.explorer import show_explorer_page
+from pages.explorer import MODE_DEEP_DIVE, show_explorer_page
 from pages.get_access import show_get_access_page
 from pages.media import show_media_page
 from pages.overview import show_overview_page
@@ -1152,6 +1152,13 @@ def main():
 
     if current_page != "Explorer":
         st.session_state["quick_country"] = None
+    else:
+        # Deep link from the landing page, e.g. ?page=Explorer&country=denmark
+        deep_link_country = country_from_query_param(params.get("country"))
+        if deep_link_country and "country_view" not in st.session_state:
+            st.session_state["explorer_mode"] = MODE_DEEP_DIVE
+            st.session_state["quick_country"] = deep_link_country
+            st.session_state["deep_country"] = deep_link_country
 
     st.markdown(build_topbar_html(current_page), unsafe_allow_html=True)
 

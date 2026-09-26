@@ -20,3 +20,13 @@ LEGACY_PAGE_ALIASES = {
     "Request Access": "GetAccess",
     "Full Data Access": "GetAccess",
 }
+
+COUNTRY_DEEP_LINKS = {"denmark", "finland", "norway", "sweden"}
+
+
+def country_from_query_param(value) -> str | None:
+    """Normalise a `?country=` deep-link value; unknown values are ignored."""
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else None
+    country = str(value or "").strip().lower()
+    return country if country in COUNTRY_DEEP_LINKS else None

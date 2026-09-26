@@ -41,5 +41,15 @@ class TestNavigation(unittest.TestCase):
         self.assertIn("color: #ffffff !important;", text)
 
 
+    def test_country_deep_link_param_is_normalised(self):
+        from navigation import country_from_query_param
+
+        self.assertEqual(country_from_query_param("Denmark"), "denmark")
+        self.assertEqual(country_from_query_param(["sweden"]), "sweden")
+        self.assertIsNone(country_from_query_param("iceland"))
+        self.assertIsNone(country_from_query_param(None))
+        self.assertIsNone(country_from_query_param([]))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,126 +1,85 @@
 import os
 import sys
 import unittest
-
-import pandas as pd
+from datetime import date
+from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from live_activity import CountryActivity  # noqa: E402
 
-class TestOverviewPageHelpers(unittest.TestCase):
-    def test_landing_page_has_three_research_actions(self):
-        from pages.overview import _research_action_items
+TODAY = date(2026, 9, 26)
+OVERVIEW_SOURCE = Path(__file__).resolve().parents[1] / "pages" / "overview.py"
 
-        html = _research_action_items()
 
-        self.assertIn("Compare", html)
-        self.assertIn("Investigate", html)
-        self.assertIn("Build a research case", html)
-        self.assertIn("Start with a question", html)
-        self.assertIn("?page=Workshop", html)
-        self.assertNotIn("research-action-number", html)
-
-    def test_landing_page_places_kpis_before_research_actions(self):
-        from pathlib import Path
-
-        overview_source = Path(__file__).resolve().parents[1] / "pages" / "overview.py"
-        text = overview_source.read_text(encoding="utf-8")
-
-        self.assertIn("def render_kpis()", text)
-        self.assertLess(text.index("render_kpis()"), text.index("research-actions"))
-        self.assertNotIn("Observatory scope", text)
-
-    def test_landing_page_uses_a_dedicated_about_label(self):
-        from pathlib import Path
-
-        overview_source = Path(__file__).resolve().parents[1] / "pages" / "overview.py"
-        text = overview_source.read_text(encoding="utf-8")
-
-        self.assertIn("section-title landing-about-title", text)
-
-    def test_observatory_status_uses_the_current_observation_label(self):
-        from pathlib import Path
-
-        overview_source = Path(__file__).resolve().parents[1] / "pages" / "overview.py"
-        text = overview_source.read_text(encoding="utf-8")
-
-        self.assertIn("Observation active", text)
-
-    def test_landing_kpi_labels_use_sentence_case(self):
-        from pathlib import Path
-
-        overview_source = Path(__file__).resolve().parents[1] / "pages" / "overview.py"
-        text = overview_source.read_text(encoding="utf-8")
-
-        self.assertIn('render_kpi("Total articles"', text)
-        self.assertIn('render_kpi("Growth rate"', text)
-
+class TestLandingPage(unittest.TestCase):
     def test_research_actions_use_the_expected_destinations(self):
         from pages.overview import _research_action_items
 
         html = _research_action_items()
+        for title in ("Compare", "Investigate", "Build a research case"):
+            self.assertIn(title, html)
+        for page in ("?page=Explorer", "?page=Media", "?page=Workshop"):
+            self.assertIn(page, html)
 
-        self.assertIn("?page=Explorer", html)
-        self.assertIn("?page=Media", html)
-        self.assertIn("?page=Workshop", html)
+    def test_hero_uses_the_agreed_title_stack(self):
+        from pages.overview import hero_html
 
-    def test_monthly_chart_hides_only_current_calendar_month(self):
-        from pages.overview import _exclude_incomplete_current_month
+        html = hero_html(CountryActivity("nordic", 1234, 1000, [], 50), None, TODAY)
+        self.assertIn(">Nordicamo</h1>", html)
+        self.assertIn("The Nordic Alternative Media Observatory", html)
+        self.assertIn("Monitoring alternative news media content", html)
+        self.assertIn("1,234", html)
+        self.assertIn("50 active outlets", html)
+        self.assertIn("?page=GetAccess", html)
 
-        frame = pd.DataFrame(
-            {
-                "date": ["2026-07-01", "2026-08-01", "2026-09-01"],
-                "count": [10, 2, 12],
-            }
+    def test_country_cards_deep_link_into_the_explorer(self):
+        from pages.overview import country_cards_html
+
+        html = country_cards_html([CountryActivity("finland", 42, 40, [1, 2, 3], 7)])
+        self.assertIn("?page=Explorer&country=finland", html)
+        self.assertIn("Finland", html)
+        self.assertIn("7 active outlets", html)
+        self.assertIn("<svg", html)
+
+    def test_feed_escapes_titles_and_labels_countries(self):
+        from pages.overview import feed_html
+
+        html = feed_html(
+            [{"domain": "www.a.dk", "title": "<b>x</b>", "url": "https://a.dk/1", "date": "2026-09-25"}],
+            {"a.dk": "denmark"},
+            TODAY,
         )
-        filtered, hidden = _exclude_incomplete_current_month(
-            frame,
-            "Month",
-            today=pd.Timestamp("2026-08-06"),
-        )
+        self.assertIn("&lt;b&gt;x&lt;/b&gt;", html)
+        self.assertIn("Denmark", html)
+        self.assertIn("Yesterday", html)
+        self.assertIn("rel='noopener noreferrer'", html)
 
-        self.assertTrue(hidden)
-        self.assertEqual(filtered["date"].dt.month.tolist(), [7, 9])
+    def test_archive_explains_gap_between_raw_and_clean_totals(self):
+        from pages.overview import archive_html
 
-    def test_non_monthly_chart_keeps_current_period(self):
-        from pages.overview import _exclude_incomplete_current_month
+        overview = {
+            "total_articles": 763624,
+            "total_outlets": 78,
+            "date_range": {"earliest": "2008-01-01", "latest": "2026-09-26"},
+            "by_country": {"denmark": 1, "finland": 1, "norway": 1, "sweden": 1},
+        }
+        html = archive_html(overview, 1035950)
+        self.assertIn("763,624", html)
+        self.assertIn("2008–2026", html)
+        self.assertIn("272,326", html)
+        self.assertNotIn("lp-archive-note", archive_html(overview, None))
 
-        frame = pd.DataFrame({"date": ["2026-08-01"], "count": [2]})
-        filtered, hidden = _exclude_incomplete_current_month(
-            frame,
-            "Year",
-            today=pd.Timestamp("2026-08-06"),
-        )
+    def test_landing_uses_clean_overview_not_raw_bundle_for_headline_numbers(self):
+        text = OVERVIEW_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("overview = fetch_overview()", text)
+        self.assertNotIn('landing.get("overview") or fetch_overview()', text)
 
-        self.assertFalse(hidden)
-        self.assertEqual(len(filtered), 1)
-
-    def test_landing_page_does_not_render_data_trust_panel(self):
-        from pathlib import Path
-
-        overview_source = Path(__file__).resolve().parents[1] / "pages" / "overview.py"
-        text = overview_source.read_text(encoding="utf-8")
-
-        self.assertNotIn("<div class='signal-panel-title'>Data trust</div>", text)
-        self.assertNotIn("build_data_trust_items", text)
-
-    def test_ticker_sample_interleaves_outlets(self):
-        from pages.overview import _build_ticker_sample
-
-        articles = [
-            {"domain": "a.example", "title": "A1"},
-            {"domain": "a.example", "title": "A2"},
-            {"domain": "b.example", "title": "B1"},
-            {"domain": "b.example", "title": "B2"},
-            {"domain": "c.example", "title": "C1"},
-            {"domain": "c.example", "title": "C2"},
-        ]
-
-        sample = _build_ticker_sample(articles)
-        domains = [row["domain"] for row in sample]
-
-        self.assertEqual(len(sample), 6)
-        self.assertTrue(all(a != b for a, b in zip(domains, domains[1:])))
+    def test_landing_no_longer_has_ticker_or_filter_chart(self):
+        text = OVERVIEW_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn("news-ticker", text)
+        self.assertNotIn("st.slider", text)
+        self.assertNotIn("st.selectbox", text)
 
 
 if __name__ == "__main__":

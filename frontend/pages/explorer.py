@@ -136,7 +136,7 @@ def country_view_summary(view: str | None) -> str:
         return "Compare publication patterns, outlet structure, orientations, and topics across the Nordic region."
     return (
         "Examine publication patterns, outlet structure, and topics within the "
-        f"{country_landscape_label(normalized).lower()}."
+        f"{country_landscape_label(normalized.lower()).lower()}."
     )
 
 
