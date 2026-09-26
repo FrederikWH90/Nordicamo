@@ -3,7 +3,8 @@
 Reading order:
 1. Hero + live status  -> "is it running, and what did it see recently?"
 2. Last 7 days by country -> the observatory's current signal
-3. Latest from the feed | The archive -> what just came in vs. what has accumulated
+0. Scrolling 'Latest' ticker under the top bar -> what just came in
+3. The archive -> what has accumulated
 4. Research pathways -> where to go next
 
 All counts come from the cleaned article view (the same data the Explorer
@@ -80,16 +81,9 @@ LANDING_CSS = """
 .lp-country .spark{display:block;width:100%;height:40px;margin:10px 0 6px;}
 .lp-country-foot{display:flex;justify-content:space-between;font-size:.8rem;color:var(--color-text-muted);border-top:1px solid var(--color-border);padding-top:8px;margin-top:4px;}
 .lp-country-foot b{color:#173f5f;}
-.lp-split{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:28px;}
-.lp-feed{list-style:none;margin:0;padding:0;border-top:1px solid var(--color-border);}
-.lp-feed li{display:grid;grid-template-columns:92px minmax(0,1fr);gap:14px;padding:11px 0;border-bottom:1px solid var(--color-border);}
-.lp-feed-when{font-size:.8rem;color:var(--color-text-muted);padding-top:2px;}
-.lp-feed-outlet{font-size:.78rem;font-weight:700;color:var(--color-logo);letter-spacing:.02em;}
-.lp-feed-outlet span{font-weight:500;color:var(--color-text-muted);}
-.lp-feed-title{display:block;color:#111!important;text-decoration:none!important;font-size:.98rem;line-height:1.4;margin-top:2px;}
-.lp-feed-title:hover{color:#173f5f!important;text-decoration:underline!important;}
 .lp-archive{background:#fff;border:1px solid var(--color-border);border-radius:10px;padding:18px 20px;}
-.lp-archive-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 12px;margin:6px 0 14px;}
+.lp-archive-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 12px;margin:6px 0 14px;}
+.news-ticker-country{font-weight:500;color:var(--color-text-muted);font-size:.85em;}
 .lp-archive-num{font-family:'Manrope',sans-serif;font-size:1.55rem;font-weight:700;color:#111;line-height:1.1;}
 .lp-archive-label{font-size:.82rem;color:var(--color-text-muted);}
 .lp-archive p{font-size:.9rem;color:var(--color-text-muted);margin:0 0 12px;line-height:1.5;}
@@ -98,13 +92,11 @@ LANDING_CSS = """
 .lp-link:hover{text-decoration:underline!important;}
 .lp-empty{padding:18px;background:#fff;border:1px dashed var(--color-border);border-radius:10px;color:var(--color-text-muted);font-size:.92rem;}
 @media (max-width:900px){
-  .lp-hero,.lp-split{grid-template-columns:1fr;gap:22px;}
-  .lp-countries{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .lp-hero,  .lp-countries,.lp-archive-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
 @media (max-width:520px){
   .lp-countries{grid-template-columns:1fr;}
-  .lp-feed li{grid-template-columns:1fr;gap:2px;}
-}
+  }
 </style>
 """
 
@@ -239,27 +231,33 @@ def country_cards_html(activity: list[CountryActivity]) -> str:
     return f"<div class='lp-countries'>{''.join(cards)}</div>"
 
 
-def feed_html(articles: list[dict], countries: dict[str, str], today: date) -> str:
+def ticker_html(articles: list[dict], countries: dict[str, str]) -> str:
+    """The scrolling 'Latest' news bar shown under the top bar."""
     if not articles:
-        return "<div class='lp-empty'>No recent articles could be loaded right now.</div>"
-    rows = []
+        return ""
+    items = []
     for article in articles:
-        outlet = display_domain(article.get("domain"))
+        outlet = display_domain(article.get("domain")) or "Unknown outlet"
         country = countries.get(outlet, "")
-        country_html = f" <span>· {html.escape(country.capitalize())}</span>" if country else ""
+        country_html = f" <span class='news-ticker-country'>{html.escape(country.capitalize())}</span>" if country else ""
         title = html.escape(repair_mojibake(article.get("title")) or "Untitled")
         url = article.get("url")
-        title_html = (
-            f"<a class='lp-feed-title' href='{html.escape(str(url), quote=True)}' "
-            f"target='_blank' rel='noopener noreferrer'>{title}</a>"
-            if url
-            else f"<span class='lp-feed-title'>{title}</span>"
+        if url:
+            title = (
+                f"<a href='{html.escape(str(url), quote=True)}' "
+                f"target='_blank' rel='noopener noreferrer'>{title}</a>"
+            )
+        date_text = html.escape(str(article.get("date") or "")[:10])
+        items.append(
+            f"<span class='news-ticker-item'><strong>{html.escape(outlet)}</strong>{country_html} — {title} ({date_text})</span>"
         )
-        rows.append(
-            f"<li><div class='lp-feed-when'>{html.escape(relative_day(article.get('date'), today))}</div>"
-            f"<div><div class='lp-feed-outlet'>{html.escape(outlet)}{country_html}</div>{title_html}</div></li>"
-        )
-    return f"<ul class='lp-feed'>{''.join(rows)}</ul>"
+    duration = max(75, min(210, len(items) * 5))
+    return (
+        "<div class='news-ticker'><div class='news-ticker-label'>Latest</div>"
+        "<div class='news-ticker-track'>"
+        f"<div class='news-ticker-items' style='--ticker-duration: {duration}s'>{''.join(items)}</div>"
+        "</div></div>"
+    )
 
 
 def archive_html(overview: dict | None, raw_total: int | None) -> str:
@@ -302,6 +300,8 @@ def show_overview_page() -> None:
     activity = load_country_activity(today)
     nordic = nordic_totals(activity)
 
+    ticker = select_latest_feed(landing.get("latest_articles") or [], limit=60, per_outlet=2)
+    _html(ticker_html(ticker, domain_country_map(today)))
     _html(hero_html(nordic, landing.get("freshness"), today))
 
     window_end = activity_window_end(today)
@@ -318,22 +318,12 @@ def show_overview_page() -> None:
         """
     )
 
-    feed = select_latest_feed(landing.get("latest_articles") or [], limit=8)
     raw_total = (landing.get("overview") or {}).get("total_articles")
     _html(
         f"""
-        <section class="lp-section lp-split">
-          <div>
-            <div class="lp-section-head">
-              <h2 class="lp-h2">Latest from the feed</h2>
-              <span class="lp-meta">Newest article per outlet</span>
-            </div>
-            {feed_html(feed, domain_country_map(today), today)}
-          </div>
-          <div>
-            <div class="lp-section-head"><h2 class="lp-h2">The archive</h2></div>
-            {archive_html(overview, raw_total)}
-          </div>
+        <section class="lp-section">
+          <div class="lp-section-head"><h2 class="lp-h2">The archive</h2></div>
+          {archive_html(overview, raw_total)}
         </section>
         """
     )

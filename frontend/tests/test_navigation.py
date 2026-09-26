@@ -12,7 +12,7 @@ class TestNavigation(unittest.TestCase):
         self.assertEqual(
             TOPBAR_NAV_ITEMS,
             [
-                ("Overview", "Explorer"),
+                ("Explorer", "Explorer"),
                 ("Research Workshop", "Workshop"),
                 ("Browse Media", "Media"),
                 ("About", "About"),

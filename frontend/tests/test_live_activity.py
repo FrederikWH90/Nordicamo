@@ -124,6 +124,17 @@ class TestFeed(unittest.TestCase):
         feed = select_latest_feed(articles, limit=5)
         self.assertEqual([a["title"] for a in feed], ["A new", "B"])
 
+    def test_feed_interleaves_outlets_when_taking_several_each(self):
+        articles = [
+            {"domain": "a.dk", "title": "A1", "date": "2026-09-25"},
+            {"domain": "a.dk", "title": "A2", "date": "2026-09-24"},
+            {"domain": "a.dk", "title": "A3", "date": "2026-09-23"},
+            {"domain": "b.se", "title": "B1", "date": "2026-09-22"},
+            {"domain": "b.se", "title": "B2", "date": "2026-09-21"},
+        ]
+        feed = select_latest_feed(articles, limit=10, per_outlet=2)
+        self.assertEqual([a["title"] for a in feed], ["A1", "B1", "A2", "B2"])
+
     def test_feed_respects_limit(self):
         articles = [{"domain": f"{i}.dk", "title": "t", "date": "2026-09-25"} for i in range(20)]
         self.assertEqual(len(select_latest_feed(articles, limit=8)), 8)

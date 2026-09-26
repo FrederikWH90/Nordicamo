@@ -42,18 +42,22 @@ class TestLandingPage(unittest.TestCase):
         self.assertIn("7 active outlets", html)
         self.assertIn("<svg", html)
 
-    def test_feed_escapes_titles_and_labels_countries(self):
-        from pages.overview import feed_html
+    def test_ticker_escapes_repairs_and_labels_countries(self):
+        from pages.overview import ticker_html
 
-        html = feed_html(
-            [{"domain": "www.a.dk", "title": "<b>x</b>", "url": "https://a.dk/1", "date": "2026-09-25"}],
+        html = ticker_html(
+            [
+                {"domain": "www.a.dk", "title": "<b>x</b>", "url": "https://a.dk/1", "date": "2026-09-25"},
+                {"domain": "riks.se", "title": "nÃ¤r", "url": None, "date": "2026-09-24"},
+            ],
             {"a.dk": "denmark"},
-            TODAY,
         )
+        self.assertIn("news-ticker-items", html)
         self.assertIn("&lt;b&gt;x&lt;/b&gt;", html)
         self.assertIn("Denmark", html)
-        self.assertIn("Yesterday", html)
+        self.assertIn("när", html)
         self.assertIn("rel='noopener noreferrer'", html)
+        self.assertEqual(ticker_html([], {}), "")
 
     def test_archive_explains_gap_between_raw_and_clean_totals(self):
         from pages.overview import archive_html
@@ -75,12 +79,12 @@ class TestLandingPage(unittest.TestCase):
         self.assertIn("overview = fetch_overview()", text)
         self.assertNotIn('landing.get("overview") or fetch_overview()', text)
 
-    def test_landing_no_longer_has_ticker_or_filter_chart(self):
+    def test_ticker_sits_above_the_hero_and_filter_chart_is_gone(self):
         text = OVERVIEW_SOURCE.read_text(encoding="utf-8")
-        self.assertNotIn("news-ticker", text)
+        body = text[text.index("def show_overview_page"):]
+        self.assertLess(body.index("ticker_html("), body.index("hero_html("))
         self.assertNotIn("st.slider", text)
         self.assertNotIn("st.selectbox", text)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -143,24 +143,28 @@ def display_domain(domain: str | None) -> str:
     return value[4:] if value.startswith("www.") else value
 
 
-def select_latest_feed(articles: Sequence[Mapping[str, object]], limit: int = 8) -> list[Mapping[str, object]]:
-    """Newest articles, at most one per outlet, so a single prolific site can't flood the feed."""
+def select_latest_feed(
+    articles: Sequence[Mapping[str, object]], limit: int = 8, per_outlet: int = 1
+) -> list[Mapping[str, object]]:
+    """Newest articles, interleaved across outlets so one prolific site can't flood the feed.
+
+    Takes at most `per_outlet` articles per outlet and orders them round-robin:
+    every outlet's newest article first, then every outlet's second newest.
+    """
     ordered = sorted(
         (a for a in articles or [] if a.get("title") and a.get("domain")),
         key=lambda a: str(a.get("date") or ""),
         reverse=True,
     )
-    seen: set[str] = set()
-    feed = []
+    by_outlet: dict[str, list[Mapping[str, object]]] = {}
     for article in ordered:
-        key = display_domain(str(article.get("domain")))
-        if key in seen:
-            continue
-        seen.add(key)
-        feed.append(article)
-        if len(feed) >= limit:
-            break
-    return feed
+        bucket = by_outlet.setdefault(display_domain(str(article.get("domain"))), [])
+        if len(bucket) < per_outlet:
+            bucket.append(article)
+    feed = []
+    for rank in range(per_outlet):
+        feed.extend(bucket[rank] for bucket in by_outlet.values() if len(bucket) > rank)
+    return feed[:limit]
 
 
 def nordic_totals(activities: Sequence[CountryActivity]) -> CountryActivity:

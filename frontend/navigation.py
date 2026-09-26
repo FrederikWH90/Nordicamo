@@ -1,7 +1,7 @@
 """Navigation labels and route keys for the Streamlit shell."""
 
 TOPBAR_NAV_ITEMS = [
-    ("Overview", "Explorer"),
+    ("Explorer", "Explorer"),
     ("Research Workshop", "Workshop"),
     ("Browse Media", "Media"),
     ("About", "About"),
@@ -15,6 +15,7 @@ LEGACY_PAGE_ALIASES = {
     "Countries": "Explorer",
     "Analysis": "Explorer",
     "Overview": "Explorer",
+    "Explorer": "Explorer",
     "Browse Media": "Media",
     "About": "About",
     "Request Access": "GetAccess",
