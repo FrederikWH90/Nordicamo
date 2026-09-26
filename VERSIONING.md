@@ -75,19 +75,38 @@ cd /home/frede/NAMO_nov25
 
 ## 4. Go back (rollback)
 
-Fast, temporary rollback to any checkpoint, commit or branch:
+The version production ran before the redesign is saved as
+`checkpoint/2026-09-26-production-exact` (byte-identical to what was live).
+
+Roll production back (restarts backend and frontend, checks both):
 
 ```bash
 cd /home/frede/NAMO_nov25
-./server/deploy/rollback.sh production checkpoint/2026-09-26-pre-redesign
+./server/deploy/rollback.sh production checkpoint/2026-09-26-production-exact
 ```
 
-This leaves production on a "detached" version. To make the rollback
-permanent, revert the change on `main` (GitHub: open the merged pull request
-and press **Revert**), then run `deploy_production.sh`. To go forward again,
-just run `deploy_production.sh`.
+Go forward again to the latest `main` (the script prints this command too,
+because older versions don't contain the deploy scripts):
+
+```bash
+cd /home/frede/NAMO_nov25 && git checkout main && git pull --ff-only origin main && systemctl --user restart nordicamo-backend.service nordicamo-frontend.service
+```
+
+To make a rollback permanent, revert the change on `main` (GitHub: open the
+merged pull request and press **Revert**), then run `deploy_production.sh`.
 
 Staging works the same way: `./server/deploy/rollback.sh staging <ref>`.
+
+### Code rollback does not undo database changes
+
+Code and database are versioned separately. Older code works with the current
+database, so a code rollback is always safe; database changes have their own undo:
+
+| Database change | Effect if kept after a code rollback | Undo |
+|---|---|---|
+| Data-quality flags (26 Sep 2026) | Old pages show cleaned numbers | `DB_PASSWORD=... /usr/bin/python3 scripts/flag_data_quality.py --revert <run_id>` (run ids in `reports/data_quality_2026-09-26/README.md`) |
+| Full-text index `idx_articles_fts_simple` | None (unused by old code) | `DROP INDEX CONCURRENTLY idx_articles_fts_simple;` |
+| Tables `data_quality_change_log`, `article_content_status` | None | Keep: they are the undo log |
 
 ## 5. Compare two versions
 

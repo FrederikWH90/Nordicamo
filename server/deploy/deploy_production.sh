@@ -19,8 +19,9 @@ if [[ "$active_branch" != "main" ]]; then
 fi
 
 systemctl --user daemon-reload
-systemctl --user restart nordicamo-frontend.service
-sleep 5
+systemctl --user restart nordicamo-backend.service nordicamo-frontend.service
+sleep 6
+curl -fsS -m 5 http://127.0.0.1:8001/health | grep -q '"healthy"'
 curl -fsS -m 5 http://127.0.0.1:8501/_stcore/health >/dev/null
 
 echo "OK: production deployed from main and healthy on :8501"
