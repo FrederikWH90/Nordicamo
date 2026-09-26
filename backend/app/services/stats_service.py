@@ -46,6 +46,10 @@ def canonical_domain(value: str) -> str:
     return base
 
 
+# SQL fragment: merge www.example.com and example.com in aggregations.
+CANONICAL_DOMAIN_SQL = "REGEXP_REPLACE(LOWER(domain), '^www\\.', '')"
+
+
 def _safe_share(count: int, total: int) -> float:
     if total <= 0:
         return 0.0
@@ -370,11 +374,11 @@ class StatsService:
         query = text(f"""
             SELECT 
                 {date_format} as date,
-                LOWER(domain) as outlet,
+                {CANONICAL_DOMAIN_SQL} as outlet,
                 COUNT(*) as count
             FROM clean_articles
             WHERE {where_clause}
-            GROUP BY {group_by}, LOWER(domain)
+            GROUP BY {group_by}, {CANONICAL_DOMAIN_SQL}
             ORDER BY date, outlet
         """)
 
@@ -489,10 +493,10 @@ class StatsService:
         total_count = int((self.db.execute(total_query, params).scalar() or 0))
 
         by_outlet_query = text(f"""
-            SELECT LOWER(domain) as domain_key, COUNT(*) as count
+            SELECT {CANONICAL_DOMAIN_SQL} as domain_key, COUNT(*) as count
             FROM clean_articles
             WHERE {where_clause} AND domain IS NOT NULL
-            GROUP BY LOWER(domain)
+            GROUP BY {CANONICAL_DOMAIN_SQL}
             ORDER BY count DESC
         """)
         outlet_rows = self.db.execute(by_outlet_query, params).fetchall()
@@ -1592,15 +1596,30 @@ class StatsService:
         total_result = self.db.execute(total_query, params).fetchone()
         total_articles = total_result[0] if total_result[0] else 0
         
-        # Get top 3 outlets
+        # Get top 3 outlets (merge www. and bare-domain variants)
         top_outlets_query = text(f"""
-            SELECT 
-                domain,
-                country,
-                COUNT(*) as count
-            FROM clean_articles
-            WHERE {where_clause}
-            GROUP BY domain, country
+            WITH base AS (
+                SELECT
+                    {CANONICAL_DOMAIN_SQL} as domain_key,
+                    LOWER(domain) as domain,
+                    country
+                FROM clean_articles
+                WHERE {where_clause}
+            ),
+            outlet_counts AS (
+                SELECT
+                    domain_key,
+                    COALESCE(
+                        MAX(domain) FILTER (WHERE domain LIKE 'www.%'),
+                        MAX(domain)
+                    ) as domain,
+                    MAX(country) FILTER (WHERE country IS NOT NULL) as country,
+                    COUNT(*) as count
+                FROM base
+                GROUP BY domain_key
+            )
+            SELECT domain, country, count
+            FROM outlet_counts
             ORDER BY count DESC
             LIMIT 3
         """)

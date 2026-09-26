@@ -69,6 +69,53 @@ class TestStatsDomainAggregation(unittest.TestCase):
         self.assertIn("'^www\\.'", db.queries[0])
         self.assertIn("GROUP BY domain_key", db.queries[0])
 
+    def test_articles_over_time_by_outlet_groups_canonical_domain(self):
+        from app.services.stats_service import StatsService
+
+        db = _FakeDB([("2026-05", "document.no", 120)])
+        rows = StatsService(db).get_articles_over_time_by_outlet(
+            ["document.no"],
+            country="norway",
+            granularity="month",
+        )
+
+        self.assertEqual(rows[0]["outlet"], "document.no")
+        self.assertIn("REGEXP_REPLACE(LOWER(domain)", db.queries[0])
+        group_clause = db.queries[0].split("GROUP BY", 1)[1].split("ORDER BY")[0]
+        self.assertIn("REGEXP_REPLACE(LOWER(domain)", group_clause)
+        self.assertNotIn("LOWER(domain)", group_clause.replace("REGEXP_REPLACE(LOWER(domain)", ""))
+
+    def test_outlet_concentration_merges_domain_variants(self):
+        from app.services.stats_service import StatsService
+
+        class _SequentialDB(_FakeDB):
+            def __init__(self, rows_by_call):
+                super().__init__([])
+                self.rows_by_call = rows_by_call
+                self.call = 0
+
+            def execute(self, query, params=None):
+                self.queries.append(str(query))
+                self.params.append(params or {})
+                rows = self.rows_by_call[self.call]
+                self.call += 1
+                return _FakeResult(rows)
+
+        seq_db = _SequentialDB(
+            [
+                [(2500,)],
+                [
+                    ("www.document.no", "norway", 1050),
+                    ("inyheter.no", "norway", 200),
+                ],
+            ]
+        )
+        result = StatsService(seq_db).get_outlet_concentration(country="norway")
+
+        self.assertEqual(result["outlets"][0]["count"], 1050)
+        self.assertIn("domain_key", seq_db.queries[1])
+        self.assertIn("GROUP BY domain_key", seq_db.queries[1])
+
 
 if __name__ == "__main__":
     unittest.main()
