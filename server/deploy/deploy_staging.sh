@@ -30,9 +30,11 @@ else
   git checkout --detach "$REF"
 fi
 
-systemctl --user restart nordicamo-frontend-staging.service
-sleep 5
+# Staging has its own backend (port 8021) running this worktree's backend code.
+systemctl --user restart nordicamo-backend-staging.service nordicamo-frontend-staging.service
+sleep 6
+curl -fsS -m 5 http://127.0.0.1:8021/health | grep -q '"healthy"'
 curl -fsS -m 5 http://127.0.0.1:8502/_stcore/health >/dev/null
 
-echo "OK: staging now at $(git log --oneline -1) and healthy on :8502"
+echo "OK: staging now at $(git log --oneline -1); backend :8021 and frontend :8502 healthy"
 echo "Production checkout untouched: $(git -C "$PROD_ROOT" log --oneline -1)"

@@ -18,7 +18,7 @@ if [[ -z "$TARGET" || -z "$REF" ]]; then
 fi
 
 case "$TARGET" in
-  staging)    ROOT="$STAGING_ROOT"; SERVICE="nordicamo-frontend-staging.service"; PORT=8502 ;;
+  staging)    ROOT="$STAGING_ROOT"; SERVICE="nordicamo-backend-staging.service nordicamo-frontend-staging.service"; PORT=8502 ;;
   production) ROOT="$PROD_ROOT";    SERVICE="nordicamo-frontend.service";         PORT=8501 ;;
   *) echo "First argument must be 'staging' or 'production'."; exit 1 ;;
 esac
@@ -27,7 +27,7 @@ cd "$ROOT"
 git fetch origin --tags --prune
 git checkout --detach "$REF"
 
-systemctl --user restart "$SERVICE"
+systemctl --user restart $SERVICE
 sleep 5
 curl -fsS -m 5 "http://127.0.0.1:$PORT/_stcore/health" >/dev/null
 echo "OK: $TARGET rolled back to $(git log --oneline -1) and healthy on :$PORT"

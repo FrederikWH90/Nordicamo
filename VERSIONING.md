@@ -19,11 +19,14 @@ Any of these can be deployed or rolled back to.
 |---|---|---|---|
 | Production (nordicamo.org) | `/home/frede/NAMO_nov25` (always `main`) | `nordicamo-frontend.service` | 8501 |
 | Staging | `/home/frede/NAMO_nov25_staging` (git worktree) | `nordicamo-frontend-staging.service` | 8502 |
-| Backend (shared by both!) | `/home/frede/NAMO_nov25/backend` | `nordicamo-backend.service` | 8001 |
+| Production backend | `/home/frede/NAMO_nov25/backend` | `nordicamo-backend.service` | 8001 |
+| Staging backend | `/home/frede/NAMO_nov25_staging/backend` | `nordicamo-backend-staging.service` | 8021 |
 
-Staging is a separate git worktree, so switching staging to another version
-never touches production. The backend is shared: a backend change is a
-production change.
+Staging is a separate git worktree with its own frontend and backend, so
+switching staging to another version never touches production. Both backends
+read the same database: a database change is a production change. The staging
+backend has no email credentials, so access requests sent from staging are
+stored, not emailed.
 
 ## 1. Save the current version (checkpoint)
 
