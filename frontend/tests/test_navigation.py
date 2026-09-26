@@ -16,7 +16,7 @@ class TestNavigation(unittest.TestCase):
                 ("Research Workshop", "Workshop"),
                 ("Browse Media", "Media"),
                 ("About", "About"),
-                ("Request Access", "GetAccess"),
+                ("Get Access", "GetAccess"),
             ],
         )
 

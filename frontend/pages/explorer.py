@@ -60,6 +60,8 @@ FONT = "Inter, Helvetica, Arial, sans-serif"
 INK = "#1f2933"
 MUTED = "#5a6a7a"
 GRID = "#eceff3"
+AXIS = "#c9d1da"
+TICK = "#3d4b5a"
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +159,7 @@ def _default_country_view() -> str:
 def _style(fig: go.Figure, height: int, legend: bool = True) -> go.Figure:
     fig.update_layout(
         height=height,
-        margin=dict(l=8, r=16, t=36 if legend else 12, b=8),
+        margin=dict(l=8, r=40, t=36 if legend else 12, b=44),
         font=dict(family=FONT, size=12, color=INK),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -165,9 +167,17 @@ def _style(fig: go.Figure, height: int, legend: bool = True) -> go.Figure:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, title_text="", font=dict(size=12)),
         hoverlabel=dict(bgcolor="white", font=dict(family=FONT, size=12, color=INK), bordercolor=GRID),
     )
-    fig.update_xaxes(showgrid=False, linecolor=GRID, tickfont=dict(color=MUTED), title_font=dict(color=MUTED))
-    fig.update_yaxes(gridcolor=GRID, zeroline=False, tickfont=dict(color=MUTED), title_font=dict(color=MUTED))
+    fig.update_xaxes(showgrid=False, linecolor=AXIS, ticks="outside", tickcolor=AXIS, ticklen=4, automargin=True,
+                     tickfont=dict(color=TICK, size=12), title_font=dict(color=MUTED))
+    fig.update_yaxes(gridcolor=GRID, zeroline=False, automargin=True, tickfont=dict(color=TICK, size=12), title_font=dict(color=MUTED))
     return fig
+
+
+def _year_axis(fig: go.Figure, frames) -> None:
+    """One labelled tick per year (every other year for long periods) on monthly charts."""
+    dates = pd.concat([f["date"] for f in frames if not f.empty]) if frames else pd.Series(dtype="datetime64[ns]")
+    span = (dates.max().year - dates.min().year) if not dates.empty else 0
+    fig.update_xaxes(dtick="M12" if span <= 12 else "M24", tickformat="%Y", showgrid=True, gridcolor=GRID)
 
 
 def volume_lines_figure(frames: dict[str, pd.DataFrame], colors: dict[str, str], label=str.capitalize) -> go.Figure:
@@ -182,9 +192,10 @@ def volume_lines_figure(frames: dict[str, pd.DataFrame], colors: dict[str, str],
                 hovertemplate="%{y:,} articles<extra>" + html.escape(label(key)) + "</extra>",
             )
         )
-    _style(fig, 360)
+    _style(fig, 380)
     fig.update_layout(hovermode="x unified")
     fig.update_yaxes(title_text="Articles per month", rangemode="tozero")
+    _year_axis(fig, list(frames.values()))
     return fig
 
 
@@ -201,9 +212,10 @@ def orientation_area_figure(frames: dict[str, pd.DataFrame]) -> go.Figure:
                 hovertemplate="%{y:,} articles<extra>" + orientation + "</extra>",
             )
         )
-    _style(fig, 340)
+    _style(fig, 360)
     fig.update_layout(hovermode="x unified", legend=dict(traceorder="normal"))
     fig.update_yaxes(title_text="Articles per month", rangemode="tozero")
+    _year_axis(fig, [f for f in frames.values() if f is not None])
     return fig
 
 
@@ -230,9 +242,9 @@ def concentration_figure(segments: pd.DataFrame) -> go.Figure:
                 name="All other outlets" if is_rest else f"#{rank} outlet",
             )
         )
-    _style(fig, 60 + 56 * len(countries), legend=False)
+    _style(fig, 90 + 56 * len(countries), legend=False)
     fig.update_layout(barmode="stack", bargap=0.3)
-    fig.update_xaxes(range=[0, 100], ticksuffix="%", showgrid=True, gridcolor=GRID)
+    fig.update_xaxes(range=[0, 100], dtick=20, ticksuffix="%", showgrid=True, gridcolor=GRID, title_text="Share of the country's articles")
     fig.update_yaxes(autorange="reversed", showgrid=False)
     return fig
 
@@ -255,7 +267,7 @@ def orientation_bars_figure(mixes: dict[str, dict[str, float]]) -> go.Figure:
         )
     _style(fig, 90 + 52 * len(countries))
     fig.update_layout(barmode="stack", bargap=0.3, legend=dict(traceorder="normal"), margin=dict(t=48))
-    fig.update_xaxes(range=[0, 100], ticksuffix="%", showgrid=True, gridcolor=GRID)
+    fig.update_xaxes(range=[0, 100], dtick=20, ticksuffix="%", showgrid=True, gridcolor=GRID, title_text="Share of the country's articles")
     fig.update_yaxes(autorange="reversed")
     return fig
 
@@ -331,14 +343,35 @@ def outlet_bars_figure(shares: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def year_ticks(first: int, last: int, current_year: int | None = None, max_labels: int = 4) -> tuple[list[int], list[str]]:
+    """Evenly spaced year ticks that always include the first and last year.
+
+    The in-progress year is marked with an asterisk ("2026*").
+    """
+    current_year = current_year or pd.Timestamp.today().year
+    if last <= first:
+        values = [first]
+    else:
+        step = max(1, -(-(last - first) // (max_labels - 1)))
+        values = list(range(first, last, step))
+        if last - values[-1] < step / 2 and len(values) > 1:
+            values[-1] = last
+        else:
+            values.append(last)
+    return values, [f"{v}*" if v == current_year else str(v) for v in values]
+
+
 def topic_trends_figure(frames: dict[str, pd.DataFrame], colors: dict[str, str], topics: list[str], label=str.capitalize, dashed: set[str] | None = None) -> go.Figure:
     """Small multiples: one panel per topic, one line per series, share of articles by year."""
     cols = 5
     rows = max(1, -(-len(topics) // cols))
     fig = make_subplots(
-        rows=rows, cols=cols, shared_yaxes=True, shared_xaxes=True,
-        subplot_titles=[_wrap(t, 22) for t in topics], horizontal_spacing=0.025, vertical_spacing=0.16,
+        rows=rows, cols=cols, shared_yaxes=True,
+        subplot_titles=[_wrap(t, 22) for t in topics], horizontal_spacing=0.03, vertical_spacing=0.2,
     )
+    years = [int(y) for f in frames.values() for y in f["year"]] or [pd.Timestamp.today().year]
+    first, last = min(years), max(years)
+    tickvals, ticktext = year_ticks(first, last, max_labels=3)
     for index, topic in enumerate(topics):
         row, col = index // cols + 1, index % cols + 1
         for key, frame in frames.items():
@@ -354,11 +387,14 @@ def topic_trends_figure(frames: dict[str, pd.DataFrame], colors: dict[str, str],
                 ),
                 row=row, col=col,
             )
-    _style(fig, 170 + 190 * rows)
+    _style(fig, 190 + 210 * rows)
     fig.update_annotations(font=dict(size=12, color=INK))
     fig.update_yaxes(ticksuffix="%", rangemode="tozero")
-    fig.update_xaxes(tickformat="d", nticks=4)
-    fig.update_layout(margin=dict(t=110), legend=dict(y=0.99, yanchor="top", yref="container", x=0))
+    fig.update_xaxes(
+        tickmode="array", tickvals=tickvals, ticktext=ticktext, range=[first - 0.3, last + 0.3],
+        showticklabels=True, showgrid=True, gridcolor=GRID, tickangle=0, tickfont=dict(size=11, color=TICK),
+    )
+    fig.update_layout(margin=dict(t=110, b=40), legend=dict(y=0.99, yanchor="top", yref="container", x=0))
     return fig
 
 
@@ -382,7 +418,6 @@ div[data-testid="stLayoutWrapper"]:has(> .st-key-explorer_controls){position:sti
 .ex-kpi-value{font-family:'Manrope',sans-serif;font-size:1.5rem;font-weight:700;color:#111;line-height:1.2;}
 .ex-kpi-sub{font-size:.78rem;color:var(--color-text-muted);}
 .ex-section{margin:34px 0 4px;padding-top:18px;border-top:1px solid var(--color-border);}
-.ex-num{font-size:.75rem;font-weight:800;letter-spacing:.08em;color:var(--color-logo);text-transform:uppercase;}
 .ex-q{font-family:'Manrope',sans-serif;font-size:1.3rem;font-weight:700;color:#111;margin:2px 0 4px;}
 .ex-read{font-size:.88rem;color:var(--color-text-muted);margin:0 0 6px;max-width:52rem;}
 .ex-insight{background:#f3f7fc;border-left:3px solid #2a78d6;border-radius:0 8px 8px 0;padding:9px 14px;margin:6px 0 10px;font-size:.93rem;color:#1f2933;}
@@ -400,13 +435,14 @@ def _plot(fig: go.Figure) -> None:
     st.plotly_chart(
         fig,
         use_container_width=True,
+        theme=None,  # our own styling; Streamlit's theme otherwise overrides tick fonts and margins
         config={"scrollZoom": False, "responsive": True, "displaylogo": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"]},
     )
 
 
-def section_header(number: int, question: str, how_to_read: str) -> str:
+def section_header(question: str, how_to_read: str) -> str:
     return (
-        f"<div class='ex-section'><div class='ex-num'>{number:02d}</div>"
+        f"<div class='ex-section'>"
         f"<div class='ex-q'>{html.escape(question)}</div>"
         f"<p class='ex-read'>{html.escape(how_to_read)}</p></div>"
     )
@@ -464,7 +500,7 @@ def _render_comparison(date_from: str, date_to: str, partisan: str | None, perio
     _html(f"<div class='ex-context'>{html.escape(period)} · {html.escape(_partisan_label(partisan))}</div><div class='ex-kpis'>{kpis}</div>")
 
     # 1. Volume
-    _html(section_header(1, "How much does each country publish?",
+    _html(section_header("How much does each country publish?",
                          "Articles per month from the monitored outlets. Changes reflect both publishing activity and which outlets are covered; the current month is left out until it is complete."))
     frames = {c: monthly_frame(data["monthly"][c]) for c in COUNTRIES}
     if any(not f.empty for f in frames.values()):
@@ -473,7 +509,7 @@ def _render_comparison(date_from: str, date_to: str, partisan: str | None, perio
         _empty()
 
     # 2. Concentration
-    _html(section_header(2, "How concentrated is each country's output?",
+    _html(section_header("How concentrated is each country's output?",
                          "Each bar splits a country's articles by outlet: the five largest outlets from dark to light, everything else in grey. Hover to see outlet names."))
     segments = concentration_segments(shares)
     if not segments.empty:
@@ -483,7 +519,7 @@ def _render_comparison(date_from: str, date_to: str, partisan: str | None, perio
         _empty()
 
     # 3. Orientation
-    _html(section_header(3, "What is the orientation mix of each country's output?",
+    _html(section_header("What is the orientation mix of each country's output?",
                          "Share of articles by the outlet's self-described orientation. This describes the monitored outlets, so shifts mostly follow outlets entering or leaving the collection."))
     if partisan:
         _empty(f"Showing {partisan} outlets only. Set orientation to “All” to compare the mix.")
@@ -495,7 +531,7 @@ def _render_comparison(date_from: str, date_to: str, partisan: str | None, perio
             _empty()
 
     # 4. Topic profile
-    _html(section_header(4, "What does each country write about?",
+    _html(section_header("What does each country write about?",
                          "Percent of each country's articles tagged with a topic in the selected period. Articles can carry several topics, so columns add up to more than 100%."))
     profiles = {c: topic_profile(data["topics"][c], totals[c]) for c in COUNTRIES}
     profiles = {c: p for c, p in profiles.items() if p}
@@ -508,8 +544,8 @@ def _render_comparison(date_from: str, date_to: str, partisan: str | None, perio
         _empty()
 
     # 5. Topic trends
-    _html(section_header(5, "Which topics are rising or falling?",
-                         "Each panel is one topic: percent of that year's articles tagged with it, per country. Years with fewer than 200 articles are left out because shares become unstable."))
+    _html(section_header("Which topics are rising or falling?",
+                         "Each panel is one topic: percent of that year's articles tagged with it, per country. * marks the current year (year to date). Years with fewer than 200 articles are left out because shares become unstable."))
     trend_frames = {c: topic_share_by_year(data["topics"][c], data["yearly"][c]) for c in COUNTRIES}
     trend_frames = {c: f for c, f in trend_frames.items() if not f.empty}
     if trend_frames and not matrix.empty:
@@ -541,7 +577,7 @@ def _render_country(country: str, date_from: str, date_to: str, partisan: str | 
     )
 
     # 1. Volume by orientation
-    _html(section_header(1, f"How much is published in {name}, and from which side?",
+    _html(section_header(f"How much is published in {name}, and from which side?",
                          "Articles per month, stacked by outlet orientation. The current month is left out until it is complete."))
     frames = {o: monthly_frame(rows) for o, rows in data["monthly"].items()}
     if any(not f.empty for f in frames.values()):
@@ -550,7 +586,7 @@ def _render_country(country: str, date_from: str, date_to: str, partisan: str | 
         _empty()
 
     # 2. Outlets
-    _html(section_header(2, "Which outlets produce it?",
+    _html(section_header("Which outlets produce it?",
                          "The 15 largest outlets by articles in the period, coloured by orientation; labels show each outlet's share of the country total."))
     if not shares.empty:
         top = shares.head(15)
@@ -573,7 +609,7 @@ def _render_country(country: str, date_from: str, date_to: str, partisan: str | 
         _empty()
 
     # 3. Activity
-    _html(section_header(3, "When was each outlet active?",
+    _html(section_header("When was each outlet active?",
                          "One row per outlet, one cell per month. Darker means closer to that outlet's busiest month, so small and large outlets are equally visible; white gaps are months with no collected articles (inactive, or not collected)."))
     activity = outlet_activity_matrix(data["outlet_monthly"], list(shares["outlet"].head(15)))
     if not activity.empty:
@@ -582,7 +618,7 @@ def _render_country(country: str, date_from: str, date_to: str, partisan: str | 
         _empty()
 
     # 4. Topic profile by outlet
-    _html(section_header(4, "What does each outlet write about?",
+    _html(section_header("What does each outlet write about?",
                          "Percent of each outlet's articles tagged with a topic (12 largest outlets). Articles can carry several topics, so rows add up to more than 100%."))
     counts = dict(zip(shares["outlet"], shares["count"]))
     outlet_profiles = {o: topic_profile(rows, int(counts.get(o, 0))) for o, rows in data["outlet_topics"].items()}
@@ -600,8 +636,8 @@ def _render_country(country: str, date_from: str, date_to: str, partisan: str | 
         _empty()
 
     # 5. Topic trends vs Nordic average
-    _html(section_header(5, f"Which topics are rising or falling in {name}?",
-                         f"Each panel is one topic: percent of that year's articles tagged with it, in {name} (solid) and across all four countries (dotted). Years with fewer than 200 articles are left out."))
+    _html(section_header(f"Which topics are rising or falling in {name}?",
+                         f"Each panel is one topic: percent of that year's articles tagged with it, in {name} (solid) and across all four countries (dotted). * marks the current year (year to date). Years with fewer than 200 articles are left out."))
     trend_frames = {
         country: topic_share_by_year(data["topics"], data["yearly"]),
         "nordic": topic_share_by_year(data["nordic_topics"], data["nordic_yearly"]),

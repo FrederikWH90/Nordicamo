@@ -49,6 +49,31 @@ class TestExplorerState(unittest.TestCase):
         self.assertNotIn("st.radio", text)
 
 
+class TestYearTicks(unittest.TestCase):
+    def test_ticks_include_first_and_last_and_mark_current_year(self):
+        from pages.explorer import year_ticks
+
+        values, labels = year_ticks(2016, 2026, current_year=2026)
+        self.assertEqual(values[0], 2016)
+        self.assertEqual(values[-1], 2026)
+        self.assertLessEqual(len(values), 4)
+        self.assertEqual(labels[-1], "2026*")
+        self.assertEqual(year_ticks(2020, 2020, current_year=2026), ([2020], ["2020"]))
+        self.assertEqual(year_ticks(2016, 2026, current_year=2026, max_labels=3)[0], [2016, 2021, 2026])
+
+    def test_short_ranges_use_every_year(self):
+        from pages.explorer import year_ticks
+
+        self.assertEqual(year_ticks(2023, 2025, current_year=2026)[0], [2023, 2024, 2025])
+
+    def test_section_headers_have_no_numbers(self):
+        from pages.explorer import section_header
+
+        html = section_header("Question?", "How to read.")
+        self.assertNotIn("ex-num", html)
+        self.assertIn("Question?", html)
+
+
 class TestExplorerTransforms(unittest.TestCase):
     def test_monthly_frame_drops_current_month(self):
         from explorer_data import monthly_frame

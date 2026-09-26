@@ -4,7 +4,7 @@ Reading order:
 1. Hero + live status  -> "is it running, and what did it see recently?"
 2. Last 7 days by country -> the observatory's current signal
 0. Scrolling 'Latest' ticker under the top bar -> what just came in
-3. The archive -> what has accumulated
+3. Full dataset -> the big N, then what is analysis-ready
 4. Research pathways -> where to go next
 
 All counts come from the cleaned article view (the same data the Explorer
@@ -42,6 +42,7 @@ from services.api import (
 )
 
 SPARK_COLOR = "#8c342f"
+COUNTRY_CODES = {"denmark": "DK", "finland": "FI", "norway": "NO", "sweden": "SE"}
 
 LANDING_CSS = """
 <style>
@@ -84,6 +85,8 @@ LANDING_CSS = """
 .lp-archive{background:#fff;border:1px solid var(--color-border);border-radius:10px;padding:18px 20px;}
 .lp-archive-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 12px;margin:6px 0 14px;}
 .news-ticker-country{font-weight:500;color:var(--color-text-muted);font-size:.85em;}
+.lp-bign{font-family:'Manrope',sans-serif;font-size:clamp(2.6rem,6vw,3.8rem);font-weight:700;line-height:1;color:var(--color-logo);letter-spacing:-.02em;}
+.lp-bign-label{font-size:1rem;color:var(--color-text-muted);margin:6px 0 16px;padding-bottom:14px;border-bottom:1px solid var(--color-border);}
 .lp-archive-num{font-family:'Manrope',sans-serif;font-size:1.55rem;font-weight:700;color:#111;line-height:1.1;}
 .lp-archive-label{font-size:.82rem;color:var(--color-text-muted);}
 .lp-archive p{font-size:.9rem;color:var(--color-text-muted);margin:0 0 12px;line-height:1.5;}
@@ -192,7 +195,6 @@ def hero_html(nordic: CountryActivity, freshness: dict | None, today: date) -> s
         <p class="lp-lede">Monitoring alternative news media content from Denmark, Finland, Norway and Sweden.</p>
         <div class="lp-ctas">
           <a class="lp-btn primary" href="?page=Explorer" target="_self">Explore the data</a>
-          <a class="lp-btn secondary" href="?page=GetAccess" target="_self">Request data access</a>
         </div>
       </div>
       <aside class="lp-status" aria-label="Observatory status">
@@ -239,7 +241,8 @@ def ticker_html(articles: list[dict], countries: dict[str, str]) -> str:
     for article in articles:
         outlet = display_domain(article.get("domain")) or "Unknown outlet"
         country = countries.get(outlet, "")
-        country_html = f" <span class='news-ticker-country'>{html.escape(country.capitalize())}</span>" if country else ""
+        code = COUNTRY_CODES.get(country, "")
+        country_html = f" <span class='news-ticker-country'>({code})</span>" if code else ""
         title = html.escape(repair_mojibake(article.get("title")) or "Untitled")
         url = article.get("url")
         if url:
@@ -270,19 +273,20 @@ def archive_html(overview: dict | None, raw_total: int | None) -> str:
     note = ""
     if raw_total and raw_total > total:
         note = (
-            f"<p class='lp-archive-note'>{raw_total:,} records collected in total. "
-            f"{raw_total - total:,} are held back from analysis (excluded outlets, "
-            "non-article pages, and records with unreliable dates).</p>"
+            f"<p class='lp-archive-note'>{raw_total - total:,} of the collected articles are held back from "
+            "the analysis-ready set (excluded outlets, non-article pages, and records with unreliable dates).</p>"
         )
+    big_n = max(int(raw_total or 0), total)
     return f"""
     <div class="lp-archive">
+      <div class="lp-bign">{big_n:,}</div>
+      <div class="lp-bign-label">articles collected from Nordic alternative news media</div>
       <div class="lp-archive-grid">
-        <div><div class="lp-archive-num">{total:,}</div><div class="lp-archive-label">articles</div></div>
+        <div><div class="lp-archive-num">{total:,}</div><div class="lp-archive-label">analysis-ready articles</div></div>
         <div><div class="lp-archive-num">{int(overview.get('total_outlets') or 0)}</div><div class="lp-archive-label">outlets</div></div>
         <div><div class="lp-archive-num">{start}–{end}</div><div class="lp-archive-label">coverage</div></div>
         <div><div class="lp-archive-num">{len(overview.get('by_country') or {}) or 4}</div><div class="lp-archive-label">countries</div></div>
       </div>
-      <p>Every collected article is kept, so today's signal can be read against years of history.</p>
       <a class="lp-link" href="?page=Media" target="_self">Browse outlets →</a>
       <a class="lp-link" href="?page=Workshop" target="_self">Build a dataset →</a>
       {note}
@@ -322,7 +326,7 @@ def show_overview_page() -> None:
     _html(
         f"""
         <section class="lp-section">
-          <div class="lp-section-head"><h2 class="lp-h2">The archive</h2></div>
+          <div class="lp-section-head"><h2 class="lp-h2">Full dataset</h2></div>
           {archive_html(overview, raw_total)}
         </section>
         """

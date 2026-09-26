@@ -31,7 +31,8 @@ class TestLandingPage(unittest.TestCase):
         self.assertIn("Monitoring alternative news media content", html)
         self.assertIn("1,234", html)
         self.assertIn("50 active outlets", html)
-        self.assertIn("?page=GetAccess", html)
+        self.assertIn("Explore the data", html)
+        self.assertNotIn("?page=GetAccess", html)
 
     def test_country_cards_deep_link_into_the_explorer(self):
         from pages.overview import country_cards_html
@@ -54,7 +55,8 @@ class TestLandingPage(unittest.TestCase):
         )
         self.assertIn("news-ticker-items", html)
         self.assertIn("&lt;b&gt;x&lt;/b&gt;", html)
-        self.assertIn("Denmark", html)
+        self.assertIn("(DK)", html)
+        self.assertNotIn("Denmark", html)
         self.assertIn("när", html)
         self.assertIn("rel='noopener noreferrer'", html)
         self.assertEqual(ticker_html([], {}), "")
@@ -69,7 +71,9 @@ class TestLandingPage(unittest.TestCase):
             "by_country": {"denmark": 1, "finland": 1, "norway": 1, "sweden": 1},
         }
         html = archive_html(overview, 1035950)
-        self.assertIn("763,624", html)
+        self.assertIn("1,035,950", html)
+        self.assertLess(html.index("1,035,950"), html.index("763,624"))
+        self.assertIn("analysis-ready", html)
         self.assertIn("2008–2026", html)
         self.assertIn("272,326", html)
         self.assertNotIn("lp-archive-note", archive_html(overview, None))

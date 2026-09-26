@@ -13,7 +13,7 @@ ACCESS_FEEDBACK_TEXT = (
 
 def show_get_access_page() -> None:
     """Show contact form for data access requests."""
-    st.markdown('<h1 class="main-header">Request Access</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Get Access</h1>', unsafe_allow_html=True)
     st.markdown(
         "<div class='subtle' style='font-size:1.08rem;'>Request current or historical Nordicamo data for research, journalism, or teaching. "
         "Please describe your purpose, the countries/outlets/time period you need, and the variables or article fields you expect to use.</div>",

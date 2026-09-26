@@ -5,7 +5,7 @@ TOPBAR_NAV_ITEMS = [
     ("Research Workshop", "Workshop"),
     ("Browse Media", "Media"),
     ("About", "About"),
-    ("Request Access", "GetAccess"),
+    ("Get Access", "GetAccess"),
 ]
 
 ALLOWED_PAGES = {"Nordicamo", "Explorer", "Workshop", "Media", "About", "GetAccess"}
@@ -19,6 +19,7 @@ LEGACY_PAGE_ALIASES = {
     "Browse Media": "Media",
     "About": "About",
     "Request Access": "GetAccess",
+    "Get Access": "GetAccess",
     "Full Data Access": "GetAccess",
 }
 
