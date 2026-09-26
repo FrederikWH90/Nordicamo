@@ -22,6 +22,8 @@ fi
 
 cd "$STAGING_ROOT"
 git fetch origin --tags --prune
+# The server clone only tracks main by default, so fetch the requested branch explicitly.
+git fetch origin "+refs/heads/$REF:refs/remotes/origin/$REF" 2>/dev/null || true
 if git rev-parse --verify --quiet "origin/$REF" >/dev/null; then
   git checkout --detach "origin/$REF"
 else
