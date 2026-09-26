@@ -1,0 +1,48 @@
+--- a/scripts/run_weekly_server.sh
++++ b/scripts/run_weekly_server.sh
+@@ -5,6 +5,7 @@
+ #   1. scrape + upload + DB load via run_full_update.py --all --require-vpn --vpn-country Denmark
+ #      (server's native IP is on a Danish ISP, so the IP-based preflight passes without a tunnel)
+ #   2. Restore outlet orientation from actors for newly loaded articles
++#   2b. Flag non-article/boilerplate rows (scripts/flag_data_quality.py in NAMO_DIR)
+ #   3. Run NLP categorization on the local GPU via run_server_categorize.py
+ #   4. Run the analysis pass and write a markdown summary report
+ #
+@@ -118,6 +119,18 @@
+ fi
+ 
+ ###############################################################################
++# Step 1d: flag non-article / boilerplate rows so clean_articles excludes them
++# (rules + revert instructions: $NAMO_DIR/scripts/flag_data_quality.py)
++###############################################################################
++echo
++echo "--- Step 1d: data-quality flags ---"
++set +e
++/usr/bin/python3 "$NAMO_DIR/scripts/flag_data_quality.py" --apply --run-id "dq-weekly-${TIMESTAMP}"
++DQ_EXIT=$?
++set -e
++echo "Step 1d (data quality) exit code: $DQ_EXIT"
++
++###############################################################################
+ # Step 2: NLP categorization on local GPU
+ ###############################################################################
+ if [[ "${SKIP_CATEGORIZE:-0}" == "1" ]]; then
+@@ -215,7 +228,7 @@
+ echo
+ echo "==============================================================="
+ echo "Finished @ $(date -Iseconds)"
+-echo "  scrape_exit=$SCRAPE_EXIT  load_exit=$LOAD_EXIT  orientation_exit=$ORIENTATION_EXIT  categorize_exit=$CATEGORIZE_EXIT  analysis_exit=$ANALYSIS_EXIT  health_exit=$HEALTH_EXIT"
++echo "  scrape_exit=$SCRAPE_EXIT  load_exit=$LOAD_EXIT  orientation_exit=$ORIENTATION_EXIT  dq_exit=$DQ_EXIT  categorize_exit=$CATEGORIZE_EXIT  analysis_exit=$ANALYSIS_EXIT  health_exit=$HEALTH_EXIT"
+ echo "  log:    $LOG"
+ echo "  report: $MD_REPORT"
+ echo "==============================================================="
+@@ -232,6 +245,9 @@
+ if [[ "$CATEGORIZE_EXIT" -ne 0 ]]; then
+   exit "$CATEGORIZE_EXIT"
+ fi
++if [[ "$DQ_EXIT" -ne 0 ]]; then
++  exit "$DQ_EXIT"
++fi
+ if [[ "$HEALTH_EXIT" -ne 0 ]]; then
+   exit "$HEALTH_EXIT"
+ fi
