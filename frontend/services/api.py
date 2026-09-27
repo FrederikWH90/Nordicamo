@@ -718,25 +718,34 @@ def fetch_selection(params: tuple, sample_size: int = 25, order: str = "random",
         return None
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_outlets():
+    """Media Archive directory: every outlet with counts, coverage and 12-month activity."""
+    try:
+        response = requests.get(f"{API_BASE_URL}/api/outlets", timeout=API_TIMEOUT_LONG)
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_outlet(outlet: str):
+    """One outlet profile. Returns None when unknown or unavailable."""
+    try:
+        response = requests.get(f"{API_BASE_URL}/api/outlets/{outlet}", timeout=API_TIMEOUT_LONG)
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return None
+
+
 def fetch_outlet_directory() -> list[dict]:
-    """All outlets with country and article count, for filter pickers."""
-    rows: dict[str, dict] = {}
-    for country in ("denmark", "finland", "norway", "sweden"):
-        try:
-            response = requests.get(
-                f"{API_BASE_URL}/api/stats/top-outlets",
-                params={"country": country, "limit": 1000},
-                timeout=API_TIMEOUT,
-            )
-            response.raise_for_status()
-            for row in response.json().get("data", []):
-                domain = str(row.get("domain") or "").lower()
-                key = domain[4:] if domain.startswith("www.") else domain
-                if not key:
-                    continue
-                entry = rows.setdefault(key, {"outlet": key, "country": country, "count": 0})
-                entry["count"] += int(row.get("count") or 0)
-        except Exception:
-            continue
-    return sorted(rows.values(), key=lambda r: r["count"], reverse=True)
+    """Outlets with country and article count, for filter pickers (from the directory)."""
+    data = fetch_outlets() or {}
+    return [
+        {"outlet": row["outlet"], "country": row.get("country"), "count": int(row.get("articles") or 0)}
+        for row in data.get("outlets", [])
+    ]

@@ -1,126 +1,135 @@
-from typing import Iterable, List, Dict, Any
+"""Pure helpers for the Media Archive (outlet directory and profiles)."""
+
+from __future__ import annotations
+
+from datetime import date
+from typing import Any, Iterable, Mapping
+from urllib.parse import urlencode
+
+COUNTRY_CODES = {"denmark": "DK", "finland": "FI", "norway": "NO", "sweden": "SE"}
+STATUS_ACTIVE_DAYS = 14
+STATUS_QUIET_DAYS = 120
+STATUSES = ("Active", "Quiet", "Historical")
+SORTS = ("Most articles", "Most active now", "Latest article", "Name (A–Z)")
+LINK_LABELS = {
+    "website": "Website", "facebook_page": "Facebook", "facebook_group": "Facebook group",
+    "twitter": "X / Twitter", "youtube": "YouTube", "telegram": "Telegram", "instagram": "Instagram",
+    "tiktok": "TikTok", "gab": "Gab", "vkontakte": "VK",
+}
 
 
-def normalize_domain(domain: str) -> str:
-    if not domain:
-        return domain
-    lowered = domain.strip().lower()
-    if lowered == "document.no":
-        return "www.document.no"
-    return lowered
+def _parse(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except (TypeError, ValueError):
+        return None
 
 
-def filter_outlets(outlets: Iterable[Dict], query: str) -> List[Dict]:
-    if not query:
-        return list(outlets)
-    needle = query.strip().lower()
-    if not needle:
-        return list(outlets)
-    filtered = []
-    for outlet in outlets:
-        name = (outlet.get("outlet_name") or outlet.get("domain") or "").lower()
-        if needle in name:
-            filtered.append(outlet)
-    return filtered
+def outlet_status(last_date: Any, today: date) -> str:
+    """Based on the newest *collected* article, not on what the outlet may publish offline."""
+    last = _parse(last_date)
+    if last is None:
+        return "Historical"
+    age = (today - last).days
+    if age <= STATUS_ACTIVE_DAYS:
+        return "Active"
+    if age <= STATUS_QUIET_DAYS:
+        return "Quiet"
+    return "Historical"
 
 
-def consolidate_outlets(outlets: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    by_domain: Dict[str, Dict[str, Any]] = {}
-    for outlet in outlets:
-        domain = normalize_domain(outlet.get("domain"))
-        if not domain:
-            continue
-        current = by_domain.get(domain)
-        if not current:
-            by_domain[domain] = {
-                "domain": domain,
-                "outlet_name": outlet.get("outlet_name"),
-                "country": outlet.get("country"),
-                "partisan": outlet.get("partisan"),
-                "count": outlet.get("count", 0) or 0,
-            }
-            continue
-        current["count"] += outlet.get("count", 0) or 0
-        for key in ("outlet_name", "country", "partisan"):
-            if not current.get(key) and outlet.get(key):
-                current[key] = outlet.get(key)
-    return list(by_domain.values())
+def time_ago(value: Any, today: date) -> str:
+    last = _parse(value)
+    if last is None:
+        return "unknown"
+    days = (today - last).days
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "yesterday"
+    if days < 14:
+        return f"{days} days ago"
+    if days < 60:
+        return f"{days // 7} weeks ago"
+    return last.strftime("%b %Y")
 
 
-def best_article_count(*values: Any) -> int:
-    counts: List[int] = []
-    for value in values:
-        try:
-            count = int(value or 0)
-        except (TypeError, ValueError):
-            continue
-        if count >= 0:
-            counts.append(count)
-    return max(counts, default=0)
+def status_line(outlet: Mapping[str, Any], today: date) -> tuple[str, str]:
+    """(status, human text) e.g. ("Active", "last article 2 days ago")."""
+    status = outlet_status(outlet.get("last_date"), today)
+    return status, f"last article {time_ago(outlet.get('last_date'), today)}"
 
 
-def related_outlets(
-    outlets: Iterable[Dict[str, Any]],
-    selected_domain: str,
-    country: str | None = None,
-    partisan: str | None = None,
-    limit: int = 6,
-) -> List[Dict[str, Any]]:
-    selected = normalize_domain(selected_domain)
-    target_country = str(country or "").strip().lower()
-    target_partisan = str(partisan or "").strip().lower()
-    candidates = []
+def coverage_years(outlet: Mapping[str, Any]) -> str:
+    first, last = _parse(outlet.get("first_date")), _parse(outlet.get("last_date"))
+    if not first or not last:
+        return "—"
+    return str(first.year) if first.year == last.year else f"{first.year}–{last.year}"
 
+
+def teaser_share(outlet: Mapping[str, Any]) -> float:
+    articles = int(outlet.get("articles") or 0)
+    return int(outlet.get("teasers") or 0) / articles if articles else 0.0
+
+
+def filter_directory(
+    outlets: Iterable[Mapping[str, Any]],
+    today: date,
+    query: str = "",
+    countries: Iterable[str] = (),
+    orientation: str | None = None,
+    status: str | None = None,
+) -> list[Mapping[str, Any]]:
+    needle = (query or "").strip().lower()
+    wanted = {c.lower() for c in countries or ()}
+    result = []
     for outlet in outlets or []:
-        domain = normalize_domain(outlet.get("domain") or "")
-        if not domain or domain == selected:
+        haystack = f"{outlet.get('name') or ''} {outlet.get('outlet') or ''}".lower()
+        if needle and needle not in haystack:
             continue
-        outlet_country = str(outlet.get("country") or outlet.get("country_code") or "").strip().lower()
-        outlet_partisan = str(outlet.get("partisan") or "").strip().lower()
-        score = 0
-        if target_country and outlet_country == target_country:
-            score += 2
-        if target_partisan and outlet_partisan == target_partisan:
-            score += 1
-        if score <= 0:
+        if wanted and str(outlet.get("country") or "").lower() not in wanted:
             continue
-        candidate = dict(outlet)
-        candidate["domain"] = domain
-        candidate["_related_score"] = score
-        candidates.append(candidate)
-
-    candidates.sort(
-        key=lambda item: (
-            -int(item.get("_related_score", 0)),
-            -best_article_count(item.get("count", 0)),
-            str(item.get("domain") or ""),
-        )
-    )
-    return candidates[:limit]
-
-
-def select_latest_articles(response: Dict[str, Any], limit: int = 5) -> List[Dict[str, Any]]:
-    if not response:
-        return []
-    articles = response.get("articles") or []
-    if not isinstance(articles, list):
-        return []
-    return articles[:limit]
-
-
-def latest_article_dates_by_domain(response: Dict[str, Any]) -> Dict[str, str]:
-    if not response:
-        return {}
-    articles = response.get("articles") or []
-    if not isinstance(articles, list):
-        return {}
-
-    latest: Dict[str, str] = {}
-    for article in articles:
-        domain = normalize_domain(article.get("domain") or "")
-        date = str(article.get("date") or "")[:10]
-        if not domain or not date:
+        if orientation and orientation != "All" and outlet.get("partisan") != orientation:
             continue
-        if domain not in latest:
-            latest[domain] = date
-    return latest
+        if status and status != "All" and outlet_status(outlet.get("last_date"), today) != status:
+            continue
+        result.append(outlet)
+    return result
+
+
+def sort_directory(outlets: list[Mapping[str, Any]], sort: str) -> list[Mapping[str, Any]]:
+    if sort == "Most active now":
+        return sorted(outlets, key=lambda o: (-int(o.get("last_30_days") or 0), -int(o.get("articles") or 0)))
+    if sort == "Latest article":
+        return sorted(outlets, key=lambda o: str(o.get("last_date") or ""), reverse=True)
+    if sort == "Name (A–Z)":
+        return sorted(outlets, key=lambda o: str(o.get("name") or o.get("outlet") or "").lower())
+    return sorted(outlets, key=lambda o: -int(o.get("articles") or 0))
+
+
+def profile_url(outlet: str) -> str:
+    return "?" + urlencode({"page": "Media", "media": outlet})
+
+
+def workshop_url(outlet: Mapping[str, Any], today: date) -> str:
+    """Open the Research Workshop pre-filtered to this outlet."""
+    params = {"page": "Workshop", "out": outlet.get("outlet") or ""}
+    first = _parse(outlet.get("first_date"))
+    if first:
+        params["y"] = f"{max(first.year, 2008)}-{today.year}"
+    return "?" + urlencode(params)
+
+
+def normalize_outlet(value: Any) -> str:
+    key = str(value or "").strip().lower()
+    for prefix in ("https://", "http://"):
+        if key.startswith(prefix):
+            key = key[len(prefix):]
+    if key.startswith("www."):
+        key = key[4:]
+    return key.rstrip("/")
+
+
+def average_per_month(monthly_12: Iterable[int]) -> float:
+    values = list(monthly_12 or [])
+    return sum(values) / len(values) if values else 0.0
