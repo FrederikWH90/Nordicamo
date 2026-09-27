@@ -203,5 +203,79 @@ class TestExplorerFigures(unittest.TestCase):
         self.assertEqual(sum(1 for t in fig.data if t.showlegend), 2)
 
 
+class TestSegmentLabels(unittest.TestCase):
+    def _segments(self, shares):
+        import pandas as pd
+
+        return pd.DataFrame([
+            {"country": "denmark", "segment": name, "rank": i + 1, "share": share}
+            for i, (name, share) in enumerate(shares)
+        ])
+
+    def test_every_segment_gets_a_label(self):
+        from explorer_data import segment_label_layout
+
+        layout = segment_label_layout(self._segments([
+            ("24nyt.dk", 0.36), ("document.dk", 0.16), ("piopio.dk", 0.13),
+            ("denkorteavis.dk", 0.12), ("arbejderen.dk", 0.07), ("All other outlets", 0.16),
+        ]))
+        self.assertEqual(len(layout), 6)
+        by_name = {item["segment"]: item for item in layout}
+        self.assertTrue(by_name["24nyt.dk"]["inside"])
+        self.assertFalse(by_name["arbejderen.dk"]["inside"])
+        self.assertEqual(by_name["arbejderen.dk"]["level"], 0)
+
+    def test_neighbouring_outside_labels_are_staggered(self):
+        from explorer_data import segment_label_layout
+
+        layout = segment_label_layout(self._segments([
+            ("big-outlet.no", 0.70), ("a-long-outlet-name.no", 0.03), ("another-long-name.no", 0.03),
+            ("third-long-name.no", 0.03), ("All other outlets", 0.21),
+        ]))
+        outside = [item for item in layout if not item["inside"]]
+        self.assertEqual([item["level"] for item in outside], [0, 1, 2])
+
+    def test_adjacent_outside_labels_do_not_overlap_including_share_suffix(self):
+        from explorer_data import segment_label_layout
+
+        # Norway-like case: two narrow neighbours whose labels only overlap once " 8%" is counted.
+        layout = segment_label_layout(self._segments([
+            ("document.no", 0.52), ("inyheter.no", 0.16), ("derimot.no", 0.10),
+            ("frihetskamp.no", 0.08), ("rights.no", 0.05), ("All other outlets", 0.09),
+        ]))
+        outside = [item for item in layout if not item["inside"]]
+        levels = [item["level"] for item in outside]
+        self.assertEqual(len(levels), len(set(levels)), f"overlapping labels share a row: {outside}")
+
+    def test_right_edge_label_extends_left_and_is_checked_that_way(self):
+        from explorer_data import segment_label_layout
+
+        layout = segment_label_layout(self._segments([
+            ("document.no", 0.52), ("inyheter.no", 0.16), ("derimot.no", 0.10),
+            ("frihetskamp.no", 0.08), ("rights.no", 0.05), ("All other outlets", 0.09),
+        ]))
+        by_name = {item["segment"]: item for item in layout}
+        self.assertEqual(by_name["All other outlets"]["anchor"], "right")
+        self.assertNotEqual(by_name["All other outlets"]["level"], by_name["frihetskamp.no"]["level"])
+
+    def test_centers_follow_the_stack(self):
+        from explorer_data import segment_label_layout
+
+        layout = segment_label_layout(self._segments([("a", 0.5), ("b", 0.5)]))
+        self.assertAlmostEqual(layout[0]["center"], 25.0)
+        self.assertAlmostEqual(layout[1]["center"], 75.0)
+
+    def test_figure_names_small_segments_with_annotations(self):
+        from explorer_data import concentration_segments, outlet_shares
+        from pages.explorer import concentration_figure
+
+        shares = outlet_shares([{"domain": "big.dk", "count": 90}] + [{"domain": f"small{i}.dk", "count": 2} for i in range(5)])
+        fig = concentration_figure(concentration_segments({"denmark": shares}))
+        fig.to_json()
+        annotated = " ".join(a.text for a in fig.layout.annotations)
+        for i in range(4):
+            self.assertIn(f"small{i}.dk", annotated)
+
+
 if __name__ == "__main__":
     unittest.main()

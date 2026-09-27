@@ -34,6 +34,7 @@ from explorer_data import (
     outlet_shares,
     pct,
     profile_matrix,
+    segment_label_layout,
     top_n_share,
     topic_gap_sentence,
     topic_profile,
@@ -220,16 +221,22 @@ def orientation_area_figure(frames: dict[str, pd.DataFrame]) -> go.Figure:
 
 
 def concentration_figure(segments: pd.DataFrame) -> go.Figure:
-    """One horizontal bar per country: top outlets' shares, then everything else."""
+    """One horizontal bar per country: top outlets' shares, then everything else.
+
+    Every segment is named: inside when the name fits, otherwise just above the
+    bar with a thin leader line, staggered over up to three rows.
+    """
     shades = ["#0d366b", "#1c5cab", "#3987e5", "#6da7ec", "#9ec5f4"]
     fig = go.Figure()
     countries = [c for c in COUNTRIES if c in set(segments["country"])]
+    layout = segment_label_layout(segments)
+    inside = {(item["country"], item["rank"]) for item in layout if item["inside"]}
     for rank in sorted(segments["rank"].unique()):
         rows = segments[segments["rank"] == rank].set_index("country").reindex(countries)
         is_rest = rank > len(shades)
         labels = [
-            "" if pd.isna(seg) else (seg if share >= 0.08 else "")
-            for seg, share in zip(rows["segment"], rows["share"].fillna(0))
+            seg if not pd.isna(seg) and (country, rank) in inside else ""
+            for country, seg in zip(countries, rows["segment"])
         ]
         fig.add_trace(
             go.Bar(
@@ -242,8 +249,24 @@ def concentration_figure(segments: pd.DataFrame) -> go.Figure:
                 name="All other outlets" if is_rest else f"#{rank} outlet",
             )
         )
-    _style(fig, 90 + 56 * len(countries), legend=False)
-    fig.update_layout(barmode="stack", bargap=0.3)
+
+    bargap = 0.64
+    half_bar = (1 - bargap) / 2
+    for item in layout:
+        if item["inside"]:
+            continue
+        center = item["center"]
+        fig.add_annotation(
+            x=center, y=countries.index(item["country"]) - half_bar, xref="x", yref="y",
+            text=f"{html.escape(item['segment'])} {item['share'] * 100:.0f}%",
+            showarrow=True, arrowhead=0, arrowwidth=1, arrowcolor="#9aa5b1", standoff=0,
+            ax=0, ay=-(11 + 18 * item["level"]),
+            xanchor=item["anchor"],
+            font=dict(size=10.5, color=INK), bgcolor="rgba(255,255,255,0.85)", borderpad=1,
+        )
+
+    _style(fig, 60 + 116 * len(countries), legend=False)
+    fig.update_layout(barmode="stack", bargap=bargap, margin=dict(t=66))
     fig.update_xaxes(range=[0, 100], dtick=20, ticksuffix="%", showgrid=True, gridcolor=GRID, title_text="Share of the country's articles")
     fig.update_yaxes(autorange="reversed", showgrid=False)
     return fig

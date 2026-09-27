@@ -312,3 +312,55 @@ def load_country(country: str, date_from: str, date_to: str, partisan: str | Non
         "outlet_topics": {key[1]: _data(value) for key, value in second.items() if isinstance(key, tuple)},
         "failed": sorted({str(k if isinstance(k, str) else k[0]) for k, v in {**first, **second}.items() if v is None}),
     }
+
+
+def label_anchor(center: float) -> str:
+    """Keep labels near the chart edges inside the plot."""
+    return "left" if center < 6 else "right" if center > 94 else "center"
+
+
+def segment_label_layout(
+    segments: pd.DataFrame,
+    plot_px: int = 1000,
+    char_px: float = 6.4,
+    padding_px: int = 14,
+    max_levels: int = 3,
+) -> list[dict[str, Any]]:
+    """Decide where each stacked-bar segment's name goes.
+
+    Names that fit inside their segment stay inside. The rest are placed above
+    the bar, on the lowest of `max_levels` rows where they don't overlap a
+    neighbour, so every segment is named. Widths are estimates for a desktop
+    plot; on narrow screens Plotly shrinks inside text to fit.
+    """
+    layout = []
+    for country, rows in segments.groupby("country", sort=False):
+        start = 0.0
+        occupied: list[list[tuple[float, float]]] = [[] for _ in range(max_levels)]
+        for record in rows.sort_values("rank").itertuples():
+            width_pct = float(record.share) * 100
+            center = start + width_pct / 2
+            start += width_pct
+            label = str(record.segment)
+            text_px = len(label) * char_px
+            inside = width_pct / 100 * plot_px >= text_px + padding_px
+            level = None
+            anchor = label_anchor(center)
+            if not inside:
+                # Outside labels also carry the share ("arbejderen.dk 7%") and use a
+                # slightly wider character estimate, since they must never collide.
+                width = ((len(label) + 4) * (char_px + 0.6) + 12) / plot_px * 100
+                if anchor == "left":
+                    span = (center, center + width)
+                elif anchor == "right":
+                    span = (center - width, center)
+                else:
+                    span = (center - width / 2, center + width / 2)
+                level = next(
+                    (i for i, taken in enumerate(occupied) if all(span[1] <= a or span[0] >= b for a, b in taken)),
+                    max_levels - 1,
+                )
+                occupied[level].append(span)
+            layout.append({"country": country, "segment": label, "rank": int(record.rank), "center": center,
+                           "share": float(record.share), "inside": inside, "level": level, "anchor": anchor})
+    return layout
