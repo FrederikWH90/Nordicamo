@@ -5,9 +5,9 @@ import unittest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from pages.about import SECTIONS, body_html, glance_html, toc_html  # noqa: E402
+from pages.about import SECTIONS, body_html, toc_html  # noqa: E402
 
-BODY = body_html({"total_outlets": 77, "total_articles": 685808, "date_range": {"earliest": "2008-01-01"}}, "", "")
+BODY = body_html("", "")
 PLAIN = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", BODY))
 
 
@@ -62,13 +62,9 @@ class TestAboutLayout(unittest.TestCase):
             self.assertIn(f"href='#{key}'", toc)
             self.assertIn(label, toc)
 
-    def test_glance_uses_live_numbers_and_hides_without_data(self):
-        text = glance_html({"total_outlets": 77, "total_articles": 685808, "date_range": {"earliest": "2008-01-01"}})
-        self.assertIn("685,808", text)
-        self.assertIn("since 2008", text)
-        self.assertEqual(glance_html(None), "")
-        # Same outlet count as the Media Archive when the directory is available.
-        self.assertIn("<b>77</b>outlets", glance_html({"total_outlets": 78, "total_articles": 1}, outlet_count=77))
+    def test_no_key_facts_line(self):
+        self.assertNotIn("ab-glance", BODY)
+        self.assertNotIn("analysis-ready articles", BODY)
 
     def test_images_are_optional(self):
         self.assertNotIn("<img src=''", BODY)

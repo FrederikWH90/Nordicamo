@@ -15,7 +15,6 @@ from pathlib import Path
 import streamlit as st
 
 from pages.footer import render_footer_bar
-from services.api import fetch_outlets, fetch_overview
 
 GITHUB_URL = "https://github.com/FrederikWH90/Nordicamo"
 ALTERPUBLICS_URL = "https://ruc.dk/en/forskningsprojekt/alternative-media-and-ideological-counterpublics"
@@ -40,8 +39,6 @@ ABOUT_CSS = """
 .ab-toc a:hover{border-left-color:var(--color-logo);color:#111!important;}
 .ab-body{max-width:46rem;}
 .ab-title{font-family:'Manrope',sans-serif;font-size:2rem;font-weight:700;color:#111;margin:0 0 12px;}
-.ab-glance{display:flex;flex-wrap:wrap;gap:8px 22px;padding:12px 0;margin:4px 0 26px;border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border);font-size:.9rem;color:var(--color-text-muted);}
-.ab-glance b{font-family:'Manrope',sans-serif;font-size:1.05rem;color:#111;margin-right:4px;}
 .ab-section{scroll-margin-top:90px;margin:0 0 34px;}
 .ab-section h2{font-family:'Manrope',sans-serif;font-size:1.3rem;font-weight:700;color:#111;margin:0 0 10px;padding:0;}
 .ab-section h3{font-size:.98rem;font-weight:700;color:#111;margin:18px 0 6px;}
@@ -86,38 +83,15 @@ def _image_data(path: Path) -> str:
     return f"data:image/png;base64,{base64.b64encode(path.read_bytes()).decode('ascii')}" if path.exists() else ""
 
 
-def glance_html(overview: dict | None, outlet_count: int | None = None) -> str:
-    """Live key facts; omitted quietly when the API is unavailable.
-
-    The outlet count comes from the Media Archive directory (www/non-www merged)
-    so both pages show the same number.
-    """
-    if not overview:
-        return ""
-    earliest = str((overview.get("date_range") or {}).get("earliest") or "")[:4]
-    outlets = outlet_count if outlet_count is not None else int(overview.get("total_outlets") or 0)
-    items = [
-        ("4", "countries"),
-        (f"{outlets}", "outlets"),
-        (f"{int(overview.get('total_articles') or 0):,}", "analysis-ready articles"),
-        (f"since {earliest}" if earliest else "", "coverage"),
-        ("Weekly", "collection"),
-    ]
-    return "<div class='ab-glance'>" + "".join(
-        f"<span><b>{html.escape(value)}</b>{html.escape(label)}</span>" for value, label in items if value
-    ) + "</div>"
-
-
 def toc_html() -> str:
     links = "".join(f"<a href='#{key}' target='_self'>{html.escape(label)}</a>" for key, label in SECTIONS)
     return f"<nav class='ab-toc' aria-label='On this page'><div class='ab-toc-label'>On this page</div>{links}</nav>"
 
 
-def body_html(overview: dict | None, alter_img: str, dml_img: str, outlet_count: int | None = None) -> str:
+def body_html(alter_img: str, dml_img: str) -> str:
     return f"""
 <div class='ab-body'>
 <h1 class='ab-title'>About Nordicamo</h1>
-{glance_html(overview, outlet_count)}
 
 <section class='ab-section' id='what'>
 <h2>What Nordicamo is</h2>
@@ -216,8 +190,6 @@ def show_about_page() -> None:
     graphics = Path(__file__).resolve().parent.parent.parent / "graphics"
     alter_img = _image_data(graphics / "Alterpublics_newlogo.png")
     dml_img = _image_data(graphics / "DML_Logo_nobackground.png")
-    directory = fetch_outlets() or {}
-    outlet_count = len(directory.get("outlets", [])) or None
-    page = ABOUT_CSS + f"<div class='ab-wrap'>{toc_html()}{body_html(fetch_overview(), alter_img, dml_img, outlet_count)}</div>"
+    page = ABOUT_CSS + f"<div class='ab-wrap'>{toc_html()}{body_html(alter_img, dml_img)}</div>"
     st.markdown(" ".join(line.strip() for line in page.splitlines() if line.strip()), unsafe_allow_html=True)
     render_footer_bar()
