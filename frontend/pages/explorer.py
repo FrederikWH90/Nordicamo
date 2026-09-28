@@ -481,7 +481,9 @@ div[data-testid="stLayoutWrapper"]:has(> [class*="st-key-narrow"]){display:none;
 .ex-cl-item{display:inline-flex;align-items:center;gap:5px;}
 .ex-cl-item i{width:10px;height:10px;border-radius:2px;display:inline-block;}
 .ex-cl-item b{font-weight:600;color:#3d4b5a;}
-[class*="st-key-narrowscroll_"] .stPlotlyChart{min-width:600px;}
+[class*="st-key-narrowscroll_"] [data-testid="stElementContainer"],
+[class*="st-key-narrowscroll_"] [data-testid="stFullScreenFrame"],
+[class*="st-key-narrowscroll_"] .stPlotlyChart{min-width:600px!important;}
 @media (max-width:640px){
   div[data-testid="stLayoutWrapper"]:has(> [class*="st-key-wide_"]){display:none;}
   div[data-testid="stLayoutWrapper"]:has(> [class*="st-key-narrow"]){display:block;}

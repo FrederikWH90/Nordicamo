@@ -313,6 +313,8 @@ class TestPhoneVariants(unittest.TestCase):
         self.assertIn('[class*="st-key-wide_"]){display:none;}', phone)
         self.assertIn('[class*="st-key-narrow"]){display:block;}', phone)
         self.assertIn(".modebar-container{display:none!important;}", phone)
+        # Streamlit's wrappers clip the chart unless they get the minimum width too.
+        self.assertIn('[class*="st-key-narrowscroll_"] [data-testid="stFullScreenFrame"]', EXPLORER_CSS)
 
 
 if __name__ == "__main__":
