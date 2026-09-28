@@ -227,7 +227,7 @@ def concentration_figure(segments: pd.DataFrame, narrow: bool = False) -> go.Fig
     Every segment is named: inside when the name fits, otherwise just above the
     bar with a thin leader line, staggered over up to three rows.
     """
-    shades = ["#0d366b", "#1c5cab", "#3987e5", "#6da7ec", "#9ec5f4"]
+    shades = CONCENTRATION_SHADES
     fig = go.Figure()
     countries = [c for c in COUNTRIES if c in set(segments["country"])]
     # Phones get a label layout computed for a ~280px plot, with one more row of labels.
@@ -244,7 +244,7 @@ def concentration_figure(segments: pd.DataFrame, narrow: bool = False) -> go.Fig
             go.Bar(
                 y=[c.capitalize() for c in countries], x=rows["share"].fillna(0) * 100, orientation="h",
                 marker=dict(color=NEUTRAL if is_rest else shades[rank - 1], line=dict(color="white", width=2)),
-                text=labels, textposition="inside", insidetextanchor="middle",
+                text=labels, textposition="inside", insidetextanchor="middle", textangle=0,
                 textfont=dict(color=INK if is_rest or rank >= 4 else "white", size=11),
                 customdata=rows["segment"].fillna(""),
                 hovertemplate="<b>%{customdata}</b><br>%{x:.1f}% of articles<extra>%{y}</extra>",
@@ -252,10 +252,10 @@ def concentration_figure(segments: pd.DataFrame, narrow: bool = False) -> go.Fig
             )
         )
 
-    bargap = 0.7 if narrow else 0.64
+    bargap = 0.35 if narrow else 0.64
     half_bar = (1 - bargap) / 2
     for item in layout:
-        if item["inside"]:
+        if item["inside"] or narrow:  # phones list the outlets under the chart instead
             continue
         center = item["center"]
         fig.add_annotation(
@@ -267,12 +267,30 @@ def concentration_figure(segments: pd.DataFrame, narrow: bool = False) -> go.Fig
             font=dict(size=10 if narrow else 10.5, color=INK), bgcolor="rgba(255,255,255,0.85)", borderpad=1,
         )
 
-    _style(fig, 60 + (150 if narrow else 116) * len(countries), legend=False)
-    fig.update_layout(barmode="stack", bargap=bargap, margin=dict(t=86 if narrow else 66),
+    _style(fig, 60 + (52 if narrow else 116) * len(countries), legend=False)
+    fig.update_layout(barmode="stack", bargap=bargap, margin=dict(t=12 if narrow else 66),
                       uniformtext=dict(minsize=8, mode="hide"))
     fig.update_xaxes(range=[0, 100], dtick=20, ticksuffix="%", showgrid=True, gridcolor=GRID, title_text="Share of the country's articles")
     fig.update_yaxes(autorange="reversed", showgrid=False)
     return fig
+
+
+CONCENTRATION_SHADES = ["#0d366b", "#1c5cab", "#3987e5", "#6da7ec", "#9ec5f4"]
+
+
+def concentration_list_html(segments: pd.DataFrame) -> str:
+    """Phone companion to the concentration bars: every outlet and share, per country, in segment shades."""
+    rows = []
+    for country in [c for c in COUNTRIES if c in set(segments["country"])]:
+        items = []
+        for record in segments[segments["country"] == country].sort_values("rank").itertuples():
+            color = NEUTRAL if record.rank > len(CONCENTRATION_SHADES) else CONCENTRATION_SHADES[record.rank - 1]
+            items.append(
+                f"<span class='ex-cl-item'><i style='background:{color}'></i>{html.escape(str(record.segment))} "
+                f"<b>{record.share * 100:.0f}%</b></span>"
+            )
+        rows.append(f"<div class='ex-cl-row'><div class='ex-cl-country'>{country.capitalize()}</div>{''.join(items)}</div>")
+    return f"<div class='ex-cl'>{''.join(rows)}</div>"
 
 
 def orientation_bars_figure(mixes: dict[str, dict[str, float]]) -> go.Figure:
@@ -286,13 +304,14 @@ def orientation_bars_figure(mixes: dict[str, dict[str, float]]) -> go.Figure:
             go.Bar(
                 y=[c.capitalize() for c in countries], x=values, orientation="h", name=orientation,
                 marker=dict(color=ORIENTATION_COLORS[orientation], line=dict(color="white", width=2)),
-                text=[f"{v:.0f}%" if v >= 6 else "" for v in values], textposition="inside",
+                text=[f"{v:.0f}%" if v >= 6 else "" for v in values], textposition="inside", textangle=0,
                 textfont=dict(color="white" if orientation in ("Right", "Left") else INK),
                 hovertemplate="%{x:.1f}%<extra>" + orientation + "</extra>",
             )
         )
     _style(fig, 90 + 52 * len(countries))
-    fig.update_layout(barmode="stack", bargap=0.3, legend=dict(traceorder="normal"), margin=dict(t=48))
+    fig.update_layout(barmode="stack", bargap=0.3, legend=dict(traceorder="normal"), margin=dict(t=48),
+                      uniformtext=dict(minsize=9, mode="hide"))
     fig.update_xaxes(range=[0, 100], dtick=20, ticksuffix="%", showgrid=True, gridcolor=GRID, title_text="Share of the country's articles")
     fig.update_yaxes(autorange="reversed")
     return fig
@@ -456,6 +475,12 @@ div[data-testid="stLayoutWrapper"]:has(> .st-key-explorer_controls){position:sti
 .ex-note{font-size:.82rem;color:var(--color-text-muted);margin:2px 0 0;}
 div[data-testid="stLayoutWrapper"]:has(> [class*="st-key-narrow"]){display:none;}
 [class*="st-key-narrowscroll_"]{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.ex-cl{display:grid;gap:10px;margin:4px 0 8px;}
+.ex-cl-row{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.84rem;color:#1f2933;padding-bottom:8px;border-bottom:1px solid var(--color-border);}
+.ex-cl-country{width:100%;font-weight:700;}
+.ex-cl-item{display:inline-flex;align-items:center;gap:5px;}
+.ex-cl-item i{width:10px;height:10px;border-radius:2px;display:inline-block;}
+.ex-cl-item b{font-weight:600;color:#3d4b5a;}
 [class*="st-key-narrowscroll_"] .stPlotlyChart{min-width:600px;}
 @media (max-width:640px){
   div[data-testid="stLayoutWrapper"]:has(> [class*="st-key-wide_"]){display:none;}
@@ -480,7 +505,7 @@ def _plot(fig: go.Figure) -> None:
     )
 
 
-def _plot_responsive(wide: go.Figure, narrow: go.Figure, key: str, scroll: bool = False) -> None:
+def _plot_responsive(wide: go.Figure, narrow: go.Figure, key: str, scroll: bool = False, narrow_html: str = "") -> None:
     """Render a desktop and a phone version; CSS shows the one that fits the screen.
 
     Plotly can't change layout by screen width, so charts whose layout depends
@@ -491,6 +516,8 @@ def _plot_responsive(wide: go.Figure, narrow: go.Figure, key: str, scroll: bool 
         _plot(wide)
     with st.container(key=f"{'narrowscroll' if scroll else 'narrow'}_{key}"):
         _plot(narrow)
+        if narrow_html:
+            _html(narrow_html)
 
 
 def section_header(question: str, how_to_read: str) -> str:
@@ -567,7 +594,8 @@ def _render_comparison(date_from: str, date_to: str, partisan: str | None, perio
     segments = concentration_segments(shares)
     if not segments.empty:
         _html(insight_html(concentration_sentence(shares)))
-        _plot_responsive(concentration_figure(segments), concentration_figure(segments, narrow=True), "concentration")
+        _plot_responsive(concentration_figure(segments), concentration_figure(segments, narrow=True), "concentration",
+                         narrow_html=concentration_list_html(segments))
     else:
         _empty()
 

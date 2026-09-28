@@ -284,9 +284,15 @@ class TestPhoneVariants(unittest.TestCase):
         from pages.explorer import concentration_figure, share_heatmap_figure, topic_trends_figure
 
         shares = outlet_shares([{"domain": "big.dk", "count": 90}] + [{"domain": f"small{i}.dk", "count": 2} for i in range(5)])
-        narrow = concentration_figure(concentration_segments({"denmark": shares}), narrow=True)
+        segments = concentration_segments({"denmark": shares})
+        narrow = concentration_figure(segments, narrow=True)
         narrow.to_json()
-        self.assertGreater(narrow.layout.height, concentration_figure(concentration_segments({"denmark": shares})).layout.height)
+        self.assertEqual(len(narrow.layout.annotations), 0)  # no floating labels on phones
+        from pages.explorer import concentration_list_html
+        listing = concentration_list_html(segments)
+        for i in range(4):
+            self.assertIn(f"small{i}.dk", listing)
+        self.assertIn("All other outlets", listing)
 
         trends = pd.DataFrame({"year": [2025, 2026], "topic": ["Environment, Climate & Energy"] * 2, "share": [0.1, 0.2], "base": [500, 500]})
         fig = topic_trends_figure({"denmark": trends}, {"denmark": "#c8102e"},
