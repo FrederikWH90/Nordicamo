@@ -95,11 +95,12 @@ LANDING_CSS = """
 .lp-link:hover{text-decoration:underline!important;}
 .lp-empty{padding:18px;background:#fff;border:1px dashed var(--color-border);border-radius:10px;color:var(--color-text-muted);font-size:.92rem;}
 @media (max-width:900px){
-  .lp-hero,  .lp-countries,.lp-archive-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .lp-hero{grid-template-columns:1fr;gap:22px;}
+  .lp-countries,.lp-archive-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
 @media (max-width:520px){
   .lp-countries{grid-template-columns:1fr;}
-  }
+}
 </style>
 """
 

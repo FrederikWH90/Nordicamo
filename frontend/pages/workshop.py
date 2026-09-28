@@ -19,8 +19,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from explorer_data import COUNTRY_COLORS, ORIENTATION_COLORS, pct
-from pages.explorer import EXPLORER_CSS, _html, _plot, _style, _year_axis, insight_html, section_header
+from explorer_data import COUNTRY_COLORS, ORIENTATION_COLORS, pct, short_topic
+from pages.explorer import EXPLORER_CSS, _html, _plot, _plot_responsive, _style, _year_axis, insight_html, section_header
 from pages.footer import render_footer_bar
 from services.api import fetch_outlet_directory, fetch_overview, fetch_selection
 from workshop_helpers import (
@@ -241,17 +241,18 @@ def _outlets_figure(by_outlet: list[dict], total: int) -> go.Figure | None:
     return fig
 
 
-def _topics_figure(by_topic: list[dict], total: int) -> go.Figure | None:
+def _topics_figure(by_topic: list[dict], total: int, narrow: bool = False) -> go.Figure | None:
     frame = pd.DataFrame(by_topic)
     if frame.empty or not total:
         return None
     frame = frame[frame["topic"].isin(TOPIC_OPTIONS)].sort_values("count", ascending=False)
     frame["share"] = frame["count"] / total * 100
     fig = go.Figure(go.Bar(
-        y=frame["topic"], x=frame["share"], orientation="h", marker_color="#2a78d6",
+        y=[short_topic(t) for t in frame["topic"]] if narrow else frame["topic"], x=frame["share"],
+        orientation="h", marker_color="#2a78d6", customdata=frame["topic"],
         text=[f"{s:.0f}%" for s in frame["share"]], textposition="outside", cliponaxis=False,
         textfont=dict(color="#5a6a7a", size=11),
-        hovertemplate="<b>%{y}</b><br>%{x:.1f}% of the selection<extra></extra>",
+        hovertemplate="<b>%{customdata}</b><br>%{x:.1f}% of the selection<extra></extra>",
     ))
     _style(fig, 70 + 24 * len(frame), legend=False)
     fig.update_yaxes(autorange="reversed", showgrid=False)
@@ -292,7 +293,7 @@ def _render_contents(selection: Selection, result: dict) -> None:
         _html(section_header("Which topics?", "Percent of the selection tagged with each topic (articles can have several)."))
         fig = _topics_figure(result.get("by_topic", []), total)
         if fig:
-            _plot(fig)
+            _plot_responsive(fig, _topics_figure(result.get("by_topic", []), total, narrow=True), "ws_topics")
 
 
 def _render_sample(result: dict) -> None:
@@ -335,7 +336,7 @@ def _render_use(selection: Selection, result: dict) -> None:
                          "Requests are reviewed by the Nordicamo team."))
     spec = "".join(f"<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>" for k, v in selection_summary_lines(selection))
     _html(f"<dl class='ws-spec'>{spec}</dl>")
-    st.code(selection.share_url(), language=None)
+    st.code(selection.share_url(), language=None, wrap_lines=True)
     if st.button("Request this dataset", type="primary", key="ws_request"):
         context = build_access_request_context(selection, result)
         st.session_state["access_request_context"] = context

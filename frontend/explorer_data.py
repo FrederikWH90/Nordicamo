@@ -364,3 +364,22 @@ def segment_label_layout(
             layout.append({"country": country, "segment": label, "rank": int(record.rank), "center": center,
                            "share": float(record.share), "inside": inside, "level": level, "anchor": anchor})
     return layout
+
+
+# Short topic names for narrow (phone) layouts; full names stay in hover text.
+SHORT_TOPICS = {
+    "Politics & Governance": "Politics",
+    "International Relations & Conflict": "International",
+    "Social Issues & Culture": "Society & culture",
+    "Crime & Justice": "Crime",
+    "Media & Censorship": "Media",
+    "Immigration & National Identity": "Immigration",
+    "Economy & Labor": "Economy",
+    "Environment, Climate & Energy": "Climate & energy",
+    "Technology, Science & Digital Society": "Tech & science",
+    "Health & Medicine": "Health",
+}
+
+
+def short_topic(topic: str) -> str:
+    return SHORT_TOPICS.get(str(topic), str(topic))

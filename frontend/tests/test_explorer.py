@@ -277,5 +277,37 @@ class TestSegmentLabels(unittest.TestCase):
             self.assertIn(f"small{i}.dk", annotated)
 
 
+class TestPhoneVariants(unittest.TestCase):
+    def test_narrow_charts_build_and_use_phone_layouts(self):
+        import pandas as pd
+        from explorer_data import concentration_segments, outlet_shares, profile_matrix
+        from pages.explorer import concentration_figure, share_heatmap_figure, topic_trends_figure
+
+        shares = outlet_shares([{"domain": "big.dk", "count": 90}] + [{"domain": f"small{i}.dk", "count": 2} for i in range(5)])
+        narrow = concentration_figure(concentration_segments({"denmark": shares}), narrow=True)
+        narrow.to_json()
+        self.assertGreater(narrow.layout.height, concentration_figure(concentration_segments({"denmark": shares})).layout.height)
+
+        trends = pd.DataFrame({"year": [2025, 2026], "topic": ["Environment, Climate & Energy"] * 2, "share": [0.1, 0.2], "base": [500, 500]})
+        fig = topic_trends_figure({"denmark": trends}, {"denmark": "#c8102e"},
+                                  ["Environment, Climate & Energy", "Politics & Governance", "Crime & Justice"], cols=2)
+        fig.to_json()
+        titles = [a.text for a in fig.layout.annotations]
+        self.assertIn("Climate & energy", titles)
+        self.assertEqual(len({a.x for a in fig.layout.annotations}), 2)  # two columns
+
+        heat = share_heatmap_figure(profile_matrix({"denmark": {"Politics & Governance": 0.5}}), row_label=__import__("explorer_data").short_topic)
+        self.assertEqual(list(heat.data[0].y), ["Politics"])
+
+    def test_css_shows_exactly_one_version_per_screen_size(self):
+        from pages.explorer import EXPLORER_CSS
+
+        self.assertIn('stLayoutWrapper"]:has(> [class*="st-key-narrow"]){display:none;}', EXPLORER_CSS)
+        phone = EXPLORER_CSS[EXPLORER_CSS.index("@media (max-width:640px)"):]
+        self.assertIn('[class*="st-key-wide_"]){display:none;}', phone)
+        self.assertIn('[class*="st-key-narrow"]){display:block;}', phone)
+        self.assertIn(".modebar-container{display:none!important;}", phone)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -35,6 +35,7 @@ from explorer_data import (
     pct,
     profile_matrix,
     segment_label_layout,
+    short_topic,
     top_n_share,
     topic_gap_sentence,
     topic_profile,
@@ -220,7 +221,7 @@ def orientation_area_figure(frames: dict[str, pd.DataFrame]) -> go.Figure:
     return fig
 
 
-def concentration_figure(segments: pd.DataFrame) -> go.Figure:
+def concentration_figure(segments: pd.DataFrame, narrow: bool = False) -> go.Figure:
     """One horizontal bar per country: top outlets' shares, then everything else.
 
     Every segment is named: inside when the name fits, otherwise just above the
@@ -229,7 +230,8 @@ def concentration_figure(segments: pd.DataFrame) -> go.Figure:
     shades = ["#0d366b", "#1c5cab", "#3987e5", "#6da7ec", "#9ec5f4"]
     fig = go.Figure()
     countries = [c for c in COUNTRIES if c in set(segments["country"])]
-    layout = segment_label_layout(segments)
+    # Phones get a label layout computed for a ~280px plot, with one more row of labels.
+    layout = segment_label_layout(segments, plot_px=280, max_levels=4) if narrow else segment_label_layout(segments)
     inside = {(item["country"], item["rank"]) for item in layout if item["inside"]}
     for rank in sorted(segments["rank"].unique()):
         rows = segments[segments["rank"] == rank].set_index("country").reindex(countries)
@@ -250,7 +252,7 @@ def concentration_figure(segments: pd.DataFrame) -> go.Figure:
             )
         )
 
-    bargap = 0.64
+    bargap = 0.7 if narrow else 0.64
     half_bar = (1 - bargap) / 2
     for item in layout:
         if item["inside"]:
@@ -260,13 +262,14 @@ def concentration_figure(segments: pd.DataFrame) -> go.Figure:
             x=center, y=countries.index(item["country"]) - half_bar, xref="x", yref="y",
             text=f"{html.escape(item['segment'])} {item['share'] * 100:.0f}%",
             showarrow=True, arrowhead=0, arrowwidth=1, arrowcolor="#9aa5b1", standoff=0,
-            ax=0, ay=-(11 + 18 * item["level"]),
+            ax=0, ay=-(11 + (17 if narrow else 18) * item["level"]),
             xanchor=item["anchor"],
-            font=dict(size=10.5, color=INK), bgcolor="rgba(255,255,255,0.85)", borderpad=1,
+            font=dict(size=10 if narrow else 10.5, color=INK), bgcolor="rgba(255,255,255,0.85)", borderpad=1,
         )
 
-    _style(fig, 60 + 116 * len(countries), legend=False)
-    fig.update_layout(barmode="stack", bargap=bargap, margin=dict(t=66))
+    _style(fig, 60 + (150 if narrow else 116) * len(countries), legend=False)
+    fig.update_layout(barmode="stack", bargap=bargap, margin=dict(t=86 if narrow else 66),
+                      uniformtext=dict(minsize=8, mode="hide"))
     fig.update_xaxes(range=[0, 100], dtick=20, ticksuffix="%", showgrid=True, gridcolor=GRID, title_text="Share of the country's articles")
     fig.update_yaxes(autorange="reversed", showgrid=False)
     return fig
@@ -307,7 +310,8 @@ def _wrap(label: str, width: int = 18) -> str:
     return "<br>".join(lines)
 
 
-def share_heatmap_figure(matrix: pd.DataFrame, column_label=str.capitalize, height: int | None = None, wrap_columns: bool = False) -> go.Figure:
+def share_heatmap_figure(matrix: pd.DataFrame, column_label=str.capitalize, height: int | None = None,
+                         wrap_columns: bool = False, row_label=str, text_size: int = 11) -> go.Figure:
     """Rows x columns of shares (0-1), labelled in every cell."""
     z = matrix.values * 100
     columns = [column_label(c) for c in matrix.columns]
@@ -315,8 +319,8 @@ def share_heatmap_figure(matrix: pd.DataFrame, column_label=str.capitalize, heig
         columns = [_wrap(c, 14) for c in columns]
     fig = go.Figure(
         go.Heatmap(
-            z=z, x=columns, y=list(matrix.index), colorscale=SEQUENTIAL_BLUE, zmin=0,
-            text=[[f"{v:.0f}%" for v in row] for row in z], texttemplate="%{text}", textfont=dict(size=11),
+            z=z, x=columns, y=[row_label(r) for r in matrix.index], colorscale=SEQUENTIAL_BLUE, zmin=0,
+            text=[[f"{v:.0f}%" for v in row] for row in z], texttemplate="%{text}", textfont=dict(size=text_size),
             xgap=2, ygap=2, showscale=False,
             hovertemplate="<b>%{y}</b><br>%{x}<br>%{z:.1f}% of articles<extra></extra>",
         )
@@ -384,13 +388,18 @@ def year_ticks(first: int, last: int, current_year: int | None = None, max_label
     return values, [f"{v}*" if v == current_year else str(v) for v in values]
 
 
-def topic_trends_figure(frames: dict[str, pd.DataFrame], colors: dict[str, str], topics: list[str], label=str.capitalize, dashed: set[str] | None = None) -> go.Figure:
-    """Small multiples: one panel per topic, one line per series, share of articles by year."""
-    cols = 5
+def topic_trends_figure(frames: dict[str, pd.DataFrame], colors: dict[str, str], topics: list[str], label=str.capitalize,
+                        dashed: set[str] | None = None, cols: int = 5) -> go.Figure:
+    """Small multiples: one panel per topic, one line per series, share of articles by year.
+
+    Phones use cols=2 with short topic names.
+    """
+    narrow = cols <= 2
     rows = max(1, -(-len(topics) // cols))
     fig = make_subplots(
         rows=rows, cols=cols, shared_yaxes=True,
-        subplot_titles=[_wrap(t, 22) for t in topics], horizontal_spacing=0.03, vertical_spacing=0.2,
+        subplot_titles=[short_topic(t) if narrow else _wrap(t, 22) for t in topics],
+        horizontal_spacing=0.08 if narrow else 0.03, vertical_spacing=(0.09 if narrow else 0.2),
     )
     years = [int(y) for f in frames.values() for y in f["year"]] or [pd.Timestamp.today().year]
     first, last = min(years), max(years)
@@ -410,14 +419,14 @@ def topic_trends_figure(frames: dict[str, pd.DataFrame], colors: dict[str, str],
                 ),
                 row=row, col=col,
             )
-    _style(fig, 190 + 210 * rows)
+    _style(fig, (150 + 185 * rows) if narrow else (190 + 210 * rows))
     fig.update_annotations(font=dict(size=12, color=INK))
     fig.update_yaxes(ticksuffix="%", rangemode="tozero")
     fig.update_xaxes(
         tickmode="array", tickvals=tickvals, ticktext=ticktext, range=[first - 0.3, last + 0.3],
         showticklabels=True, showgrid=True, gridcolor=GRID, tickangle=0, tickfont=dict(size=11, color=TICK),
     )
-    fig.update_layout(margin=dict(t=110, b=40), legend=dict(y=0.99, yanchor="top", yref="container", x=0))
+    fig.update_layout(margin=dict(t=(90 if narrow else 110), b=40), legend=dict(y=0.99, yanchor="top", yref="container", x=0))
     return fig
 
 
@@ -445,6 +454,14 @@ div[data-testid="stLayoutWrapper"]:has(> .st-key-explorer_controls){position:sti
 .ex-read{font-size:.88rem;color:var(--color-text-muted);margin:0 0 6px;max-width:52rem;}
 .ex-insight{background:#f3f7fc;border-left:3px solid #2a78d6;border-radius:0 8px 8px 0;padding:9px 14px;margin:6px 0 10px;font-size:.93rem;color:#1f2933;}
 .ex-note{font-size:.82rem;color:var(--color-text-muted);margin:2px 0 0;}
+div[data-testid="stLayoutWrapper"]:has(> [class*="st-key-narrow"]){display:none;}
+[class*="st-key-narrowscroll_"]{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+[class*="st-key-narrowscroll_"] .stPlotlyChart{min-width:600px;}
+@media (max-width:640px){
+  div[data-testid="stLayoutWrapper"]:has(> [class*="st-key-wide_"]){display:none;}
+  div[data-testid="stLayoutWrapper"]:has(> [class*="st-key-narrow"]){display:block;}
+  .modebar-container{display:none!important;}
+}
 @media (max-width:900px){.ex-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}div[data-testid="stLayoutWrapper"]:has(> .st-key-explorer_controls){position:static;}}
 </style>
 """
@@ -461,6 +478,19 @@ def _plot(fig: go.Figure) -> None:
         theme=None,  # our own styling; Streamlit's theme otherwise overrides tick fonts and margins
         config={"scrollZoom": False, "responsive": True, "displaylogo": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"]},
     )
+
+
+def _plot_responsive(wide: go.Figure, narrow: go.Figure, key: str, scroll: bool = False) -> None:
+    """Render a desktop and a phone version; CSS shows the one that fits the screen.
+
+    Plotly can't change layout by screen width, so charts whose layout depends
+    on width (label placement, panel grids, wide heatmaps) ship both versions.
+    `scroll=True` lets the phone version scroll sideways inside its own box.
+    """
+    with st.container(key=f"wide_{key}"):
+        _plot(wide)
+    with st.container(key=f"{'narrowscroll' if scroll else 'narrow'}_{key}"):
+        _plot(narrow)
 
 
 def section_header(question: str, how_to_read: str) -> str:
@@ -537,7 +567,7 @@ def _render_comparison(date_from: str, date_to: str, partisan: str | None, perio
     segments = concentration_segments(shares)
     if not segments.empty:
         _html(insight_html(concentration_sentence(shares)))
-        _plot(concentration_figure(segments))
+        _plot_responsive(concentration_figure(segments), concentration_figure(segments, narrow=True), "concentration")
     else:
         _empty()
 
@@ -562,7 +592,7 @@ def _render_comparison(date_from: str, date_to: str, partisan: str | None, perio
     if not matrix.empty:
         matrix = matrix[[c for c in COUNTRIES if c in matrix.columns]]
         _html(insight_html(topic_gap_sentence(matrix)))
-        _plot(share_heatmap_figure(matrix))
+        _plot_responsive(share_heatmap_figure(matrix), share_heatmap_figure(matrix, row_label=short_topic), "topic_profile")
     else:
         _empty()
 
@@ -572,7 +602,12 @@ def _render_comparison(date_from: str, date_to: str, partisan: str | None, perio
     trend_frames = {c: topic_share_by_year(data["topics"][c], data["yearly"][c]) for c in COUNTRIES}
     trend_frames = {c: f for c, f in trend_frames.items() if not f.empty}
     if trend_frames and not matrix.empty:
-        _plot(topic_trends_figure(trend_frames, COUNTRY_COLORS, list(matrix.index)))
+        topics_order = list(matrix.index)
+        _plot_responsive(
+            topic_trends_figure(trend_frames, COUNTRY_COLORS, topics_order),
+            topic_trends_figure(trend_frames, COUNTRY_COLORS, topics_order, cols=2),
+            "trends_compare",
+        )
     else:
         _empty()
 
@@ -654,7 +689,13 @@ def _render_country(country: str, date_from: str, date_to: str, partisan: str | 
         matrix = profile_matrix(outlet_profiles, row_order=topics).T
         matrix = matrix.reindex([o for o in shares["outlet"] if o in matrix.index])
         _html(insight_html(topic_gap_sentence(matrix.T, entity_label=str)))
-        _plot(share_heatmap_figure(matrix, column_label=str, wrap_columns=True, height=90 + 34 * len(matrix.index)))
+        _plot_responsive(
+            share_heatmap_figure(matrix, column_label=str, wrap_columns=True, height=90 + 34 * len(matrix.index)),
+            share_heatmap_figure(matrix, column_label=short_topic, wrap_columns=True, text_size=10,
+                                 height=90 + 30 * len(matrix.index)),
+            "outlet_topics",
+            scroll=True,
+        )
     else:
         _empty()
 
@@ -669,7 +710,11 @@ def _render_country(country: str, date_from: str, date_to: str, partisan: str | 
     if trend_frames and topics:
         colors = {country: COUNTRY_COLORS[country], "nordic": "#8a8f98"}
         labels = {country: name, "nordic": "Nordic average"}
-        _plot(topic_trends_figure(trend_frames, colors, topics, label=labels.get, dashed={"nordic"}))
+        _plot_responsive(
+            topic_trends_figure(trend_frames, colors, topics, label=labels.get, dashed={"nordic"}),
+            topic_trends_figure(trend_frames, colors, topics, label=labels.get, dashed={"nordic"}, cols=2),
+            "trends_country",
+        )
     else:
         _empty()
 

@@ -90,5 +90,21 @@ class TestLandingPage(unittest.TestCase):
         self.assertNotIn("st.slider", text)
         self.assertNotIn("st.selectbox", text)
 
+class TestLandingMobileCss(unittest.TestCase):
+    def test_hero_stacks_to_one_column_on_small_screens(self):
+        import re
+        from pages.overview import LANDING_CSS
+
+        block = LANDING_CSS[LANDING_CSS.index("@media (max-width:900px)"):]
+        block = block[:block.index("}\n}") + 3]
+        rules = dict(re.findall(r"([^{}]+)\{([^{}]*)\}", block.split("{", 1)[1]))
+        hero = next(v for k, v in rules.items() if k.strip() == ".lp-hero")
+        self.assertIn("grid-template-columns:1fr", hero)
+        # The hero must never share a multi-column rule on small screens.
+        for selector, body in rules.items():
+            if "repeat(" in body:
+                self.assertNotIn(".lp-hero", selector)
+
+
 if __name__ == "__main__":
     unittest.main()

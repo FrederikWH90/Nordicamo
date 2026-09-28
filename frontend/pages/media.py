@@ -16,7 +16,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from explorer_data import COUNTRY_COLORS, ORIENTATION_COLORS
+from explorer_data import COUNTRY_COLORS, ORIENTATION_COLORS, short_topic
 from live_activity import repair_mojibake, sparkline_svg
 from media_helpers import (
     COUNTRY_CODES,
@@ -34,7 +34,7 @@ from media_helpers import (
     time_ago,
     workshop_url,
 )
-from pages.explorer import EXPLORER_CSS, _html, _plot, _style, _year_axis, insight_html, section_header
+from pages.explorer import EXPLORER_CSS, _html, _plot, _plot_responsive, _style, _year_axis, insight_html, section_header
 from pages.footer import render_footer_bar
 from services.api import fetch_outlet, fetch_outlets
 from workshop_helpers import format_category_labels
@@ -199,25 +199,26 @@ def _activity_figure(monthly: list[dict], country: str | None) -> go.Figure | No
     return fig
 
 
-def _topics_figure(topics: list[dict], country_topics: dict, country: str | None) -> go.Figure | None:
+def _topics_figure(topics: list[dict], country_topics: dict, country: str | None, narrow: bool = False) -> go.Figure | None:
     if not topics:
         return None
     frame = pd.DataFrame(topics).sort_values("share", ascending=True)
     label = f"All {str(country or '').capitalize()} outlets"
     fig = go.Figure()
+    labels = [short_topic(t) for t in frame["topic"]] if narrow else list(frame["topic"])
     fig.add_trace(go.Bar(
-        y=frame["topic"], x=frame["share"] * 100, orientation="h", name="This outlet", marker_color="#2a78d6",
+        y=labels, x=frame["share"] * 100, orientation="h", name="This outlet", marker_color="#2a78d6",
         text=[f"{s * 100:.0f}%" for s in frame["share"]], textposition="outside", cliponaxis=False,
         textfont=dict(color="#5a6a7a", size=11),
         hovertemplate="<b>%{y}</b><br>This outlet: %{x:.1f}%<extra></extra>",
     ))
     fig.add_trace(go.Scatter(
-        y=frame["topic"], x=[country_topics.get(t, 0) * 100 for t in frame["topic"]], mode="markers", name=label,
+        y=labels, x=[country_topics.get(t, 0) * 100 for t in frame["topic"]], mode="markers", name=label,
         marker=dict(symbol="line-ns", size=18, line=dict(width=3, color="#1f2933")),
         hovertemplate="<b>%{y}</b><br>" + html.escape(label) + ": %{x:.1f}%<extra></extra>",
     ))
     _style(fig, 90 + 30 * len(frame))
-    fig.update_xaxes(ticksuffix="%", range=[0, 100], dtick=20, showgrid=True)
+    fig.update_xaxes(ticksuffix="%", range=[0, 100], dtick=25 if narrow else 20, showgrid=True)
     fig.update_yaxes(showgrid=False)
     return fig
 
@@ -274,9 +275,10 @@ def _render_profile(profile: dict) -> None:
     _html(section_header("What it writes about",
                          f"Percent of its articles tagged with each topic (bars), against all {str(country or '').capitalize()} "
                          "outlets (black line). Articles can have several topics."))
-    fig = _topics_figure(profile.get("topics", []), profile.get("country_topics") or {}, country)
+    args = (profile.get("topics", []), profile.get("country_topics") or {}, country)
+    fig = _topics_figure(*args)
     if fig:
-        _plot(fig)
+        _plot_responsive(fig, _topics_figure(*args, narrow=True), "outlet_topic_bars")
 
     _html(section_header("Latest articles", "The ten newest collected articles. Titles link to the original."))
     items = []
