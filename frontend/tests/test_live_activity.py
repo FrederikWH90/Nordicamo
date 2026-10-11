@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from live_activity import (  # noqa: E402
     CountryActivity,
+    collected_week_end,
     activity_window_end,
     activity_window_start,
     display_domain,
@@ -28,6 +29,25 @@ def daily(start: date, days: int, count: int = 1):
 
 
 class TestWeeklyBlocks(unittest.TestCase):
+    def test_collection_anchors_to_prior_complete_calendar_week(self):
+        self.assertEqual(collected_week_end(date(2026, 10, 11), "2026-10-05 02:35:53"), date(2026, 10, 4))
+        self.assertEqual(collected_week_end(date(2026, 10, 11), "2026-10-11"), date(2026, 10, 4))
+        self.assertIsNone(collected_week_end(TODAY, None))
+        self.assertIsNone(collected_week_end(TODAY, "bad"))
+
+    def test_future_timestamp_cannot_extend_reporting_window(self):
+        self.assertEqual(collected_week_end(date(2026, 10, 11), "2027-01-01"), date(2026, 10, 4))
+
+    def test_unverified_window_keeps_counts_but_suppresses_comparison(self):
+        end = date(2026, 10, 4)
+        rows = daily(end - timedelta(days=13), 14, 10)
+        rows.append({"date": "2026-10-05", "count": 999})
+        item = summarise_country("norway", rows, date(2026, 10, 11), window_end=end, coverage_verified=False)
+        self.assertEqual(item.last_7_days, 70)
+        self.assertEqual(item.weekly_series[-1], 70)
+        self.assertIsNone(item.delta_ratio)
+        self.assertIsNone(nordic_totals([item]).delta_ratio)
+
     def test_last_block_ends_before_days_still_being_collected(self):
         rows = daily(date(2026, 9, 18), 7, count=10)  # 18..24 Sep
         rows.append({"date": "2026-09-25", "count": 999})  # yesterday: still backfilling

@@ -13,6 +13,15 @@ OVERVIEW_SOURCE = Path(__file__).resolve().parents[1] / "pages" / "overview.py"
 
 
 class TestLandingPage(unittest.TestCase):
+    def test_provisional_cards_and_hero_do_not_report_production_declines(self):
+        from pages.overview import country_cards_html, hero_html, load_country_activity
+        item = CountryActivity("norway", 143, 563, [563, 143], 6, coverage_verified=False)
+        for rendered in (country_cards_html([item]), hero_html(item, None, TODAY)):
+            self.assertIn("Provisional", rendered)
+            self.assertNotIn("vs previous", rendered)
+            self.assertNotIn("collecting daily", rendered)
+        self.assertEqual(load_country_activity(TODAY, None), [])
+
     def test_research_actions_use_the_expected_destinations(self):
         from pages.overview import _research_action_items
 

@@ -1228,7 +1228,15 @@ class StatsService:
             "growth_rate_per_year": growth_rate,
             "coverage_years": coverage_years,
         }
+        # Collection is distinct from publication dates and later NLP updates.
+        collection_row = self.db.execute(text("""
+            SELECT MAX(scraped_at) FROM clean_articles
+            WHERE scraped_at <= CURRENT_TIMESTAMP
+        """)).fetchone()
+        last_collected = collection_row[0] if collection_row else None
         freshness = {
+            "last_collected_at": str(last_collected) if last_collected else None,
+            "coverage_status": "unverified",
             "last_article_date": str(latest_date) if latest_date else None,
             "last_updated": str(last_updated) if last_updated else None,
             "hours_ago": hours_ago,
