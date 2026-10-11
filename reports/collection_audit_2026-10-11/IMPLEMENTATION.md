@@ -18,6 +18,8 @@ Rollback on the server: `./server/deploy/rollback.sh production 3020c88` from `/
 
 Update: the user requested collection through both the local computer and VM and supplied VM port 2820. Targeted Derimot/Riks recovery is now completed through both routes: 209 missing articles inserted and verified visible, with all orientations filled. The Riks archive discovery repair is installed on the collector. See `TWO_ROUTE_RECOVERY.md` for counts, checks and limitations.
 
+Further update: the user explicitly requested the production server route too. Both outlets were checked there. An older historical WordPress date filter was repaired and regression-tested; the final server results exactly match the comparable local/VM sets (79 Derimot, 148 Riks archive). No additional database rows were needed. See `THREE_ROUTE_CHECK.md`.
+
 Queue repair is being prepared locally. Normal incremental runs will discover fresh URLs even if retries remain, prune URLs already in the manifest/database, and put fresh work before queued retries. Historical recovery keeps its archive-resume behavior. Existing recovery-discovery tests (26) passed; dedicated queue regression checks and server deployment remain outstanding.
 
 The user's preferred collection routes are the VM and local computer, described as using different VPNs. The completed recovery used these routes; it did not start scraping through the production server's native connection.

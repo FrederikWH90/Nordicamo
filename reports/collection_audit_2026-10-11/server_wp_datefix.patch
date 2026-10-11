@@ -1,0 +1,35 @@
+--- /tmp/namo_server_sitemap_parser_20261011.py	2026-10-11 13:48:44
++++ /tmp/namo_server_sitemap_parser_fixed_20261011.py	2026-10-11 13:50:37
+@@ -14,7 +14,7 @@
+ import requests
+ import gzip
+ from xml.etree import ElementTree as ET
+-from datetime import datetime, date
++from datetime import datetime, date, timedelta
+ from typing import List, Dict, Optional, Tuple, Set, Any
+ from dataclasses import dataclass
+ from urllib.parse import urlencode, urljoin, urlparse
+@@ -1026,11 +1026,13 @@
+                 "per_page": per_page,
+                 "page": page,
+                 "_fields": "link,modified_gmt,date_gmt",
+-                "orderby": "modified",
++                "orderby": "date" if date_to else "modified",
+                 "order": "desc",
+             }
+             if cutoff_date:
+                 params["after"] = f"{cutoff_date.isoformat()}T00:00:00"
++            if date_to:
++                params["before"] = f"{(date_to + timedelta(days=1)).isoformat()}T00:00:00"
+ 
+             data: Optional[List[dict]] = None
+             try:
+@@ -1060,7 +1062,7 @@
+ 
+             for item in data:
+                 link = item.get("link")
+-                dt = item.get("modified_gmt") or item.get("date_gmt")
++                dt = (item.get("date_gmt") or item.get("modified_gmt")) if date_to else (item.get("modified_gmt") or item.get("date_gmt"))
+                 d = None
+                 if dt:
+                     try:
