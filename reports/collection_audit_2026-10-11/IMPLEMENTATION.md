@@ -14,10 +14,12 @@ Validation: 21 activity-helper tests, 9 landing-page tests, and 1 backend freshn
 
 Rollback on the server: `./server/deploy/rollback.sh production 3020c88` from `/home/frede/NAMO_nov25`.
 
-## Steps 2–4: pending
+## Steps 2–4: in progress
+
+Update: the user requested collection through both the local computer and VM and supplied VM port 2820. Targeted Derimot/Riks recovery is now completed through both routes: 209 missing articles inserted and verified visible, with all orientations filled. The Riks archive discovery repair is installed on the collector. See `TWO_ROUTE_RECOVERY.md` for counts, checks and limitations.
 
 Queue repair is being prepared locally. Normal incremental runs will discover fresh URLs even if retries remain, prune URLs already in the manifest/database, and put fresh work before queued retries. Historical recovery keeps its archive-resume behavior. Existing recovery-discovery tests (26) passed; dedicated queue regression checks and server deployment remain outstanding.
 
-Before starting or scheduling new scraping, a clarification is pending: the server has no ExpressVPN client, while `data_collection/AGENTS.md` requires ExpressVPN. The existing server collector accepts its Danish public IP instead. The user was asked whether to retain that server connection or require VPN setup.
+The user's preferred collection routes are the VM and local computer, described as using different VPNs. The completed recovery used these routes; it did not start scraping through the production server's native connection.
 
-Daily collection, weekly archive reconciliation, Derimot/Riks recovery, per-outlet accounting, and separate GPU admission checks have not yet been deployed. Current production collection remains on its existing weekly schedule.
+Daily collection, weekly archive reconciliation, production queue repair, per-outlet accounting, and separate GPU admission checks have not yet been deployed. Current production collection remains on its existing weekly schedule with the new Riks archive rule.

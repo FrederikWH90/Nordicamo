@@ -1,0 +1,18 @@
+{
+  "type": "paged",
+  "url_templates": [
+    "https://riks.se/nyheter?sida={page}",
+    "https://riks.se/kronikor?sida={page}"
+  ],
+  "fetch": "requests",
+  "parse": "bs4",
+  "allow_undated_discovery": true,
+  "start": 1,
+  "max_pages": 12,
+  "max_links_total": 1000,
+  "stop_after_empty_pages": 2,
+  "sleep_seconds": 0.25,
+  "prefer": true,
+  "skip_sitemap_discovery": true,
+  "skip_trafilatura": true
+}
