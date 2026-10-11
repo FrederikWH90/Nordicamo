@@ -1,0 +1,13 @@
+[Unit]
+Description=Nordicamo daily discovery and database loading
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/frede/namo_data_collection
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/home/frede/.config/namo/collection.env
+ExecStart=/home/frede/namo_data_collection/.venv/bin/python scripts/run_collection_server.py --mode daily --max-urls 200
+TimeoutStartSec=12h
+LimitNOFILE=65536

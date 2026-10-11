@@ -1,0 +1,28 @@
+--- a/src/sitemap_parser.py
++++ b/src/sitemap_parser.py
+@@ -368,7 +368,11 @@
+                         status = r.status_code
+                         final_url = r.url
+                         if r.status_code < 400:
+-                            r.encoding = r.encoding or "utf-8"
++                            content_type = r.headers.get("Content-Type", "")
++                            if isinstance(content_type, str) and "charset=" not in content_type.lower():
++                                r.encoding = r.apparent_encoding or "utf-8"
++                            else:
++                                r.encoding = r.encoding or "utf-8"
+                             html = r.text
+                     else:
+                         if not browser_fetch_html:
+@@ -418,7 +422,11 @@
+                     if fetch_mode == "requests":
+                         r = self.session.get(url, timeout=req_timeout_s, allow_redirects=True)
+                         if r.status_code < 400:
+-                            r.encoding = r.encoding or "utf-8"
++                            content_type = r.headers.get("Content-Type", "")
++                            if isinstance(content_type, str) and "charset=" not in content_type.lower():
++                                r.encoding = r.apparent_encoding or "utf-8"
++                            else:
++                                r.encoding = r.encoding or "utf-8"
+                             html = r.text
+                     else:
+                         if not browser_fetch_html:

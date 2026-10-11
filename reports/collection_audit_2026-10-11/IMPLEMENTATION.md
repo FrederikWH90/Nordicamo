@@ -16,6 +16,8 @@ Rollback on the server: `./server/deploy/rollback.sh production 3020c88` from `/
 
 ## Steps 2–4: in progress
 
+Scheduling update: queue repair and daily/weekly collection modes are deployed and tested. Daily and weekly timers are enabled, collection is separated from NLP, and the first full collection is running. Basic per-run/outlet reports are persisted, but coverage is still explicitly unverified. See `QUEUE_AND_SCHEDULE.md` for tests, pilot outcomes, schedule and rollback instructions. The status descriptions below record earlier stages of implementation.
+
 Update: the user requested collection through both the local computer and VM and supplied VM port 2820. Targeted Derimot/Riks recovery is now completed through both routes: 209 missing articles inserted and verified visible, with all orientations filled. The Riks archive discovery repair is installed on the collector. See `TWO_ROUTE_RECOVERY.md` for counts, checks and limitations.
 
 Further update: the user explicitly requested the production server route too. Both outlets were checked there. An older historical WordPress date filter was repaired and regression-tested; the final server results exactly match the comparable local/VM sets (79 Derimot, 148 Riks archive). No additional database rows were needed. See `THREE_ROUTE_CHECK.md`.

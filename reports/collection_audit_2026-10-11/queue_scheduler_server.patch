@@ -1,0 +1,191 @@
+--- a/src/namo_scraper/scraper.py
++++ b/src/namo_scraper/scraper.py
+@@ -127,6 +141,7 @@
+         flush_every: int = 500,
+         # URL discovery mode
+         discover_only: bool = False,
++        discovery_mode: str = "standard",
+     ):
+         self.startlist_path = Path(startlist_path)
+         self.data_dir = Path(data_dir)
+@@ -170,6 +185,9 @@
+         self.flush_every = max(0, int(flush_every))
+         self._domain_flush_state: Dict[str, Dict[str, Any]] = {}
+         self.discover_only = bool(discover_only)
++        if discovery_mode not in {"standard", "daily", "weekly"}:
++            raise ValueError("Invalid discovery_mode")
++        self.discovery_mode = discovery_mode
+ 
+         vpn_cli = vpn_cli_path or DEFAULT_EXPRESSVPN_CLI_PATH
+         self.vpn = ExpressVPNManager(cli_path=vpn_cli) if self.manage_vpn else None
+@@ -932,20 +950,16 @@
+         else:
+             logger.info("   No previous scrape data (new domain)")
+ 
+-        # Resume queue: if a pending queue exists, skip discovery and go straight to scraping.
+-        # This is especially important for archive-crawl domains (friatider, epochtimes) where discovery can be very expensive.
+-        # Stale-queue heuristic: queues with ≤2 URLs often cause stalls (single bad/slow URL); force rediscovery.
++        # Incremental runs always discover fresh URLs, even with pending retries.
++        # Historical recovery may resume its expensive archive discovery queue.
+         queue_records = queue_store.load_queue_records(self.queue_dir, domain_norm)
+         queue_records = self._validate_recovery_queue_records(domain_norm, queue_records)
+         queue_urls = self._filter_discovered_urls(domain, [record["url"] for record in queue_records])
+         queue_date_map = {record["url"]: record.get("date") for record in queue_records}
+-        if queue_urls and len(queue_urls) <= 2:
+-            logger.info(f"   🧹 Clearing stale queue ({len(queue_urls)} URL(s)) to force fresh discovery")
+-            queue_store.clear_queue(self.queue_dir, domain_norm)
+-            queue_urls = []
+-            queue_date_map = {}
++        if not self.force_rescrape:
++            queue_urls = self.manifest.filter_new_urls(domain, queue_urls)
+         entries = []
+-        if queue_urls:
++        if queue_urls and self.recovery_window_active:
+             logger.info(f"   ♻️ Resuming from existing queue: {len(queue_urls)} pending URLs (skipping discovery)")
+         else:
+             # Discovery
+@@ -955,7 +969,19 @@
+                 if self.browser_fallback and domain_norm in self.browser_allowlist
+                 else None
+             )
+-            if (
++            if getattr(self, "discovery_mode", "standard") == "weekly":
++                entries = parser.parse_domain(domain, cutoff_date=cutoff_date,
++                    date_to=self.date_to, strict_date_window=self.strict_date_window,
++                    browser_fetch_html=browser_html)
++            elif getattr(self, "discovery_mode", "standard") == "daily" and domain_norm not in self.prefer_wpjson_domains and domain_norm not in self.prefer_peertube_api_domains:
++                entries = parser._parse_domain_with_rss(domain, cutoff_date=cutoff_date,
++                    date_to=self.date_to, strict_date_window=self.strict_date_window,
++                    browser_fetch_html=browser_html)
++                if not entries:
++                    entries = parser.parse_domain(domain, cutoff_date=cutoff_date,
++                        date_to=self.date_to, strict_date_window=self.strict_date_window,
++                        browser_fetch_html=browser_html)
++            elif (
+                 domain_norm in self.prefer_rss_domains
+                 and self.recovery_window_active
+                 and browser_html
+@@ -1001,9 +1037,8 @@
+                     strict_date_window=self.strict_date_window,
+                     browser_fetch_html=browser_html,
+                 )
+-            queue_date_map = {}
+             for entry in entries:
+-                if entry.url not in queue_date_map:
++                if self._queue_date_for_entry(entry) is not None or entry.url not in queue_date_map:
+                     queue_date_map[entry.url] = self._queue_date_for_entry(entry)
+ 
+         with self.stats_lock:
+@@ -1025,7 +1060,9 @@
+             )
+             return []
+ 
+-        urls = queue_urls if queue_urls else self._filter_discovered_urls(domain, [e.url for e in entries])
++        # Fresh work goes first; an old retry backlog cannot exhaust the URL cap.
++        fresh_urls = self._filter_discovered_urls(domain, [e.url for e in entries])
++        urls = list(dict.fromkeys(fresh_urls + queue_urls))
+         if self.force_rescrape:
+             new_urls = list(urls)
+         else:
+@@ -1080,6 +1117,7 @@
+         new_urls = deduped_urls
+ 
+         urls_new_pre_limit = len(new_urls)
++        pending_all_urls = list(new_urls)
+         logger.info(f"   📋 {urls_new_pre_limit} new URLs to scrape")
+         if max_urls and len(new_urls) > max_urls:
+             new_urls = new_urls[:max_urls]
+@@ -1087,23 +1125,22 @@
+ 
+         # If we are not already resuming from an existing queue, persist the queue now.
+         # We only persist the *to-be-scraped* list (after manifest/failed filters), since that's what matters for resume.
+-        if not queue_urls:
+-            queue_store.write_queue(
+-                self.queue_dir,
+-                domain_norm,
+-                pending_urls=[{"url": url, "date": queue_date_map.get(url)} for url in new_urls],
+-                meta={
+-                    "domain": domain_norm,
+-                    "created_at": datetime.now().isoformat(),
+-                    "country": country,
+-                    "pending_urls": int(len(new_urls)),
+-                    "cutoff_date": str(cutoff_date) if cutoff_date else None,
+-                    "date_to": str(self.date_to) if self.date_to else None,
+-                    "strict_date_window": bool(self.strict_date_window),
+-                    "force_rescrape": bool(self.force_rescrape),
+-                    "include_failed_urls": bool(self.include_failed_urls),
+-                },
+-            )
++        queue_store.write_queue(
++            self.queue_dir,
++            domain_norm,
++            pending_urls=[{"url": url, "date": queue_date_map.get(url)} for url in pending_all_urls],
++            meta={
++                "domain": domain_norm,
++                "created_at": datetime.now().isoformat(),
++                "country": country,
++                "pending_urls": int(len(pending_all_urls)),
++                "cutoff_date": str(cutoff_date) if cutoff_date else None,
++                "date_to": str(self.date_to) if self.date_to else None,
++                "strict_date_window": bool(self.strict_date_window),
++                "force_rescrape": bool(self.force_rescrape),
++                "include_failed_urls": bool(self.include_failed_urls),
++            },
++        )
+ 
+         if self.discover_only:
+             # Record discovery-only run and exit without scraping. The queue file is the output.
+@@ -1206,7 +1243,7 @@
+                                 country=country,
+                                 buffer=flush_buffer,
+                                 output_dir=self.output_dir,
+-                                db=self.db,
++                                db=self.db if getattr(self, "db_write_enabled", True) else None,
+                                 batch_size=self.batch_size,
+                                 domain_flush_state=self._domain_flush_state,
+                                 stats=self.stats,
+@@ -1221,7 +1258,7 @@
+                                 self.manifest.save_domain(domain)
+                             except Exception:
+                                 pass
+-                            pending = [u for u in new_urls if u not in completed_final]
++                            pending = [u for u in pending_all_urls if u not in completed_final]
+                             if pending:
+                                 queue_store.write_queue(
+                                     self.queue_dir,
+@@ -1257,7 +1294,7 @@
+             self._vpn_check_egress_or_raise()
+             # Queue checkpointing: persist remaining pending URLs periodically so restarts can skip discovery.
+             if i % checkpoint_every_processed == 0:
+-                pending = [u for u in new_urls if u not in completed_final]
++                pending = [u for u in pending_all_urls if u not in completed_final]
+                 if pending:
+                     queue_store.write_queue(
+                         self.queue_dir,
+@@ -1292,7 +1329,7 @@
+                 country=country,
+                 buffer=flush_buffer,
+                 output_dir=self.output_dir,
+-                db=self.db,
++                db=self.db if getattr(self, "db_write_enabled", True) else None,
+                 batch_size=self.batch_size,
+                 domain_flush_state=self._domain_flush_state,
+                 stats=self.stats,
+@@ -1311,7 +1348,7 @@
+ 
+         logger.info(f"   ✅ Scraped {len(scraped_articles)}/{len(new_urls)} articles for {domain}")
+         # Final queue update: keep transient failures pending; clear if nothing left.
+-        pending_final = [u for u in new_urls if u not in completed_final]
++        pending_final = [u for u in pending_all_urls if u not in completed_final]
+         if pending_final:
+             queue_store.write_queue(
+                 self.queue_dir,
+@@ -1462,7 +1499,7 @@
+                 logger.info(f"      - {dom}")
+         logger.info("─" * 60)
+ 
+-        if self.db and self.db.is_connected() and all_articles:
++        if getattr(self, "db_write_enabled", True) and self.db and self.db.is_connected() and all_articles:
+             # Dedupe by URL within this run (per-domain flushes may overlap; DB also UNIQUE(url)).
+             _seen_final: Set[str] = set()
+             _deduped_final: List[Dict[str, Any]] = []
