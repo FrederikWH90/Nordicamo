@@ -29,12 +29,26 @@ class CountryActivity:
     previous_7_days: int
     weekly_series: list[int] = field(default_factory=list)
     active_outlets: int = 0
+    coverage_verified: bool = True
 
     @property
     def delta_ratio(self) -> float | None:
-        if self.previous_7_days <= 0:
+        if not self.coverage_verified or self.previous_7_days <= 0:
             return None
         return (self.last_7_days - self.previous_7_days) / self.previous_7_days
+
+
+def collected_week_end(today: date, last_collected: str | None) -> date | None:
+    """Last Sunday before an observed collection day; never imply completeness.
+
+    Article timestamps and NLP updates do not prove when collection ran.
+    Missing/invalid collection timestamps therefore produce no reporting window.
+    """
+    try:
+        checked = min(today, date.fromisoformat(str(last_collected)[:10]))
+    except (TypeError, ValueError):
+        return None
+    return checked - timedelta(days=checked.weekday() + 1)
 
 
 def activity_window_end(today: date, lag_days: int = COLLECTION_LAG_DAYS) -> date:
@@ -75,14 +89,17 @@ def summarise_country(
     daily_rows: Iterable[Mapping[str, object]],
     today: date,
     active_outlets: int = 0,
+    window_end: date | None = None,
+    coverage_verified: bool = True,
 ) -> CountryActivity:
-    series = weekly_blocks(daily_rows, today)
+    series = weekly_blocks(daily_rows, window_end or today, lag_days=0 if window_end else COLLECTION_LAG_DAYS)
     return CountryActivity(
         country=country,
         last_7_days=series[-1] if series else 0,
         previous_7_days=series[-2] if len(series) > 1 else 0,
         weekly_series=series,
         active_outlets=active_outlets,
+        coverage_verified=coverage_verified,
     )
 
 
@@ -179,6 +196,7 @@ def nordic_totals(activities: Sequence[CountryActivity]) -> CountryActivity:
         previous_7_days=sum(a.previous_7_days for a in activities),
         weekly_series=series,
         active_outlets=sum(a.active_outlets for a in activities),
+        coverage_verified=bool(activities) and all(a.coverage_verified for a in activities),
     )
 
 

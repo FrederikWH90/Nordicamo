@@ -21,6 +21,7 @@ import streamlit as st
 from live_activity import (
     COUNTRIES,
     CountryActivity,
+    collected_week_end,
     activity_window_end,
     activity_window_start,
     display_domain,
@@ -143,10 +144,12 @@ def _research_action_items() -> str:
     )
 
 
-def load_country_activity(today: date) -> list[CountryActivity]:
+def load_country_activity(today: date, window_end: date | None = None) -> list[CountryActivity]:
     """Daily counts for the last 13 weeks plus outlets active in the latest 7-day window."""
-    window_start = activity_window_start(today).isoformat()
-    window_end = activity_window_end(today)
+    if window_end is None:
+        return []
+    window_start = (window_end - timedelta(days=7 * 13 - 1)).isoformat()
+    reporting_end = window_end
     week_start = (window_end - timedelta(days=6)).isoformat()
     window_end = window_end.isoformat()
     activity = []
@@ -163,6 +166,8 @@ def load_country_activity(today: date) -> list[CountryActivity]:
                 daily.get("data", []),
                 today,
                 active_outlets=len({display_domain(o.get("domain")) for o in outlets.get("data", [])}),
+                window_end=reporting_end,
+                coverage_verified=False,
             )
         )
     return activity
@@ -179,7 +184,7 @@ def domain_country_map(today: date) -> dict[str, str]:
 
 
 def hero_html(nordic: CountryActivity, freshness: dict | None, today: date) -> str:
-    delta_label, tone = format_delta(nordic.delta_ratio)
+    delta_label, tone = activity_comparison(nordic)
     if freshness:
         updated_text, last_article = format_freshness(freshness)
         updated_text = updated_text.replace("Dashboard last updated: ", "")
@@ -190,7 +195,7 @@ def hero_html(nordic: CountryActivity, freshness: dict | None, today: date) -> s
     return f"""
     <section class="lp-hero">
       <div>
-        <div class="lp-kicker"><span class="pulse"></span>Live · collecting daily</div>
+        <div class="lp-kicker"><span class="pulse"></span>Observatory · recurring collection</div>
         <h1 class="lp-title">Nordicamo</h1>
         <p class="lp-subtitle">The Nordic Alternative Media Observatory</p>
         <p class="lp-lede">Monitoring alternative news media content from Denmark, Finland, Norway and Sweden.</p>
@@ -200,7 +205,7 @@ def hero_html(nordic: CountryActivity, freshness: dict | None, today: date) -> s
       </div>
       <aside class="lp-status" aria-label="Observatory status">
         <div class="lp-status-head">
-          <span class="lp-status-label">Articles published, latest 7 days</span>
+          <span class="lp-status-label">Indexed articles, latest reporting week</span>
         </div>
         <div class="lp-status-big">{nordic.last_7_days:,}</div>
         <div class="lp-status-sub">articles from {nordic.active_outlets} active outlets</div>
@@ -214,10 +219,16 @@ def hero_html(nordic: CountryActivity, freshness: dict | None, today: date) -> s
     """
 
 
+def activity_comparison(item: CountryActivity) -> tuple[str, str]:
+    if not item.coverage_verified:
+        return "Provisional · coverage not verified", "flat"
+    return format_delta(item.delta_ratio)
+
+
 def country_cards_html(activity: list[CountryActivity]) -> str:
     cards = []
     for item in activity:
-        label, tone = format_delta(item.delta_ratio)
+        label, tone = activity_comparison(item)
         name = item.country.capitalize()
         cards.append(
             f"""
@@ -302,21 +313,27 @@ def show_overview_page() -> None:
 
     landing = fetch_landing_bundle() or {}
     overview = fetch_overview()
-    activity = load_country_activity(today)
+    freshness = landing.get("freshness") or {}
+    window_end = collected_week_end(today, freshness.get("last_collected_at"))
+    activity = load_country_activity(today, window_end)
     nordic = nordic_totals(activity)
 
     ticker = select_latest_feed(landing.get("latest_articles") or [], limit=60, per_outlet=2)
     _html(ticker_html(ticker, domain_country_map(today)))
     _html(hero_html(nordic, landing.get("freshness"), today))
 
-    window_end = activity_window_end(today)
+    period_text = (
+        f"Published {(window_end - timedelta(days=6)).strftime('%-d %b')} – {window_end.strftime('%-d %b %Y')}"
+        if window_end else "Reporting window unavailable"
+    )
+    collection_text = html.escape(str(freshness.get("last_collected_at") or "unavailable")[:16])
     _html(
         f"""
         <section class="lp-section">
           <div class="lp-section-head">
-            <h2 class="lp-h2">This week across the Nordics</h2>
-            <span class="lp-meta">Published {(window_end - timedelta(days=6)).strftime('%-d %b')} – {window_end.strftime('%-d %b %Y')}
-            · the last 2 days are still being collected · trend: 13 weeks</span>
+            <h2 class="lp-h2">Latest reporting week across the Nordics</h2>
+            <span class="lp-meta">{period_text} · collection observed: {collection_text}
+            · provisional coverage; newer dates excluded · trend: 13 weeks</span>
           </div>
           {country_cards_html(activity)}
         </section>
