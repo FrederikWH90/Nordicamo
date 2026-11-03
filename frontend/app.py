@@ -1035,6 +1035,10 @@ st.markdown("""
             border-top: 0;
             padding-top: 4px;
         }
+        /* The same pixel speed crosses a phone screen much faster than a desktop one. */
+        .news-ticker-items {
+            animation-duration: calc(var(--ticker-duration, 40s) * 2.5);
+        }
     }
 
     @media (max-width: 520px) {

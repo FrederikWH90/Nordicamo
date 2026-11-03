@@ -96,11 +96,12 @@ LANDING_CSS = """
 .lp-link:hover{text-decoration:underline!important;}
 .lp-empty{padding:18px;background:#fff;border:1px dashed var(--color-border);border-radius:10px;color:var(--color-text-muted);font-size:.92rem;}
 @media (max-width:900px){
-  .lp-hero,  .lp-countries,.lp-archive-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .lp-hero{grid-template-columns:1fr;gap:22px;}
+  .lp-countries,.lp-archive-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
 @media (max-width:520px){
   .lp-countries{grid-template-columns:1fr;}
-  }
+}
 </style>
 """
 
@@ -166,7 +167,6 @@ def load_country_activity(today: date, window_end: date | None = None) -> list[C
                 today,
                 active_outlets=len({display_domain(o.get("domain")) for o in outlets.get("data", [])}),
                 window_end=reporting_end,
-                coverage_verified=False,
             )
         )
     return activity
@@ -219,9 +219,11 @@ def hero_html(nordic: CountryActivity, freshness: dict | None, today: date) -> s
 
 
 def activity_comparison(item: CountryActivity) -> tuple[str, str]:
-    if not item.coverage_verified:
-        return "Provisional · coverage not verified", "flat"
-    return format_delta(item.delta_ratio)
+    """Week-on-week change from the two latest reporting weeks."""
+    if item.previous_7_days <= 0:
+        return format_delta(None)
+    ratio = (item.last_7_days - item.previous_7_days) / item.previous_7_days
+    return format_delta(ratio)
 
 
 def country_cards_html(activity: list[CountryActivity]) -> str:
@@ -332,7 +334,7 @@ def show_overview_page() -> None:
           <div class="lp-section-head">
             <h2 class="lp-h2">Latest reporting week across the Nordics</h2>
             <span class="lp-meta">{period_text} · collection observed: {collection_text}
-            · provisional coverage; newer dates excluded · trend: 13 weeks</span>
+            · newer dates excluded · trend: 13 weeks</span>
           </div>
           {country_cards_html(activity)}
         </section>

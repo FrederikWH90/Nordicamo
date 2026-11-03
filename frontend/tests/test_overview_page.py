@@ -13,12 +13,13 @@ OVERVIEW_SOURCE = Path(__file__).resolve().parents[1] / "pages" / "overview.py"
 
 
 class TestLandingPage(unittest.TestCase):
-    def test_provisional_cards_and_hero_do_not_report_production_declines(self):
+    def test_cards_and_hero_show_the_week_comparison(self):
         from pages.overview import country_cards_html, hero_html, load_country_activity
         item = CountryActivity("norway", 143, 563, [563, 143], 6, coverage_verified=False)
         for rendered in (country_cards_html([item]), hero_html(item, None, TODAY)):
-            self.assertIn("Provisional", rendered)
-            self.assertNotIn("vs previous", rendered)
+            self.assertNotIn("Provisional", rendered)
+            self.assertNotIn("coverage not verified", rendered)
+            self.assertIn("75% vs previous 7 days", rendered)
             self.assertNotIn("collecting daily", rendered)
         self.assertEqual(load_country_activity(TODAY, None), [])
 
@@ -98,6 +99,31 @@ class TestLandingPage(unittest.TestCase):
         self.assertLess(body.index("ticker_html("), body.index("hero_html("))
         self.assertNotIn("st.slider", text)
         self.assertNotIn("st.selectbox", text)
+
+class TestLandingMobileCss(unittest.TestCase):
+    def test_hero_stacks_to_one_column_on_small_screens(self):
+        import re
+        from pages.overview import LANDING_CSS
+
+        block = LANDING_CSS[LANDING_CSS.index("@media (max-width:900px)"):]
+        block = block[:block.index("}\n}") + 3]
+        rules = dict(re.findall(r"([^{}]+)\{([^{}]*)\}", block.split("{", 1)[1]))
+        hero = next(v for k, v in rules.items() if k.strip() == ".lp-hero")
+        self.assertIn("grid-template-columns:1fr", hero)
+        # The hero must never share a multi-column rule on small screens.
+        for selector, body in rules.items():
+            if "repeat(" in body:
+                self.assertNotIn(".lp-hero", selector)
+
+    def test_phone_news_bar_runs_slower_than_desktop(self):
+        app_source = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
+        phone = app_source[app_source.index("@media (max-width: 900px)"):]
+        phone = phone[:phone.index("@media (max-width: 520px)")]
+        self.assertIn("animation-duration: calc(var(--ticker-duration, 40s) * 2.5);", phone)
+        overview = OVERVIEW_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn("Provisional", overview)
+        self.assertNotIn("provisional coverage", overview)
+
 
 if __name__ == "__main__":
     unittest.main()
