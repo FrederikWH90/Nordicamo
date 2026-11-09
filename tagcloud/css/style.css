@@ -14,6 +14,7 @@
   background: var(--bg);
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; line-height: 1.55; background: var(--bg); }
 a { color: var(--navy); }
 
@@ -61,6 +62,15 @@ fieldset.field .choice { margin: 2px 0; }
 fieldset.field select { margin-top: 4px; }
 select:disabled { opacity: .5; }
 .credit { grid-column: 1 / -1; color: var(--muted); }
+.mode { border: 0; padding: 0; margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }
+.mode legend { font-weight: 700; padding: 0; margin-right: 4px; }
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.compare-grid textarea { min-height: 180px; }
+.compare-grid .field { margin-bottom: 8px; }
+.compare-grid .field input { width: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 4px 0 12px; font-size: .88rem; }
+.legend[hidden] { display: none; }
+.swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
 
 button.primary {
   margin-top: 18px; padding: 10px 22px; border: 0; border-radius: 8px; background: var(--navy); color: #fff;
@@ -101,6 +111,9 @@ table.freq { width: 100%; border-collapse: collapse; font-size: .92rem; }
 .intro p { color: var(--ink); font-size: .95rem; margin: 0 0 10px; max-width: 48rem; }
 .footer { max-width: 980px; margin: 0 auto 28px; padding: 14px 20px; font-size: .85rem; color: var(--muted); }
 
+@media (max-width: 700px) {
+  .compare-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 600px) {
   .topbar { padding: 8px 14px; }
   .brand-sub { display: none; }

@@ -18,15 +18,42 @@
 <main>
   <h1>Tag Cloud Generator</h1>
   <p class="lede">Paste a text, count its words and turn them into a tag cloud or a word cloud.
+    Compare two texts in one cloud: size is how often a word occurs in both, and colour shows which text uses it more.
     Your text is processed in your browser and never uploaded.</p>
 
   <form id="form" novalidate>
     <section class="panel">
       <h2>Input</h2>
+      <fieldset class="mode">
+        <legend>How many texts?</legend>
+        <label class="choice"><input type="radio" name="mode" value="one" checked> One text</label>
+        <label class="choice"><input type="radio" name="mode" value="compare"> Compare two texts</label>
+      </fieldset>
+      <div id="inputOne">
       <label for="text" class="hint">Enter a text in the box below. All words will be counted; the output is a tag cloud.</label>
       <textarea id="text" rows="12" spellcheck="false" placeholder="Paste or type a text…"></textarea>
+      <p id="charcount" class="muted">0 words</p>
+      </div>
+      <div id="inputCompare" hidden>
+        <p class="hint">Paste two texts on the same topic. Words are drawn together. A long text does not drown a short one: colour follows each word's share of that text, not the raw count.</p>
+        <div class="compare-grid">
+          <div>
+            <label class="field" for="nameA"><span>Name of the first text</span>
+              <input id="nameA" maxlength="40" value="Text A" placeholder="e.g. Company A"></label>
+            <label for="textA" class="hint">First text</label>
+            <textarea id="textA" rows="10" spellcheck="false" placeholder="Paste the first text…"></textarea>
+            <span id="countA" class="muted">0 words</span>
+          </div>
+          <div>
+            <label class="field" for="nameB"><span>Name of the second text</span>
+              <input id="nameB" maxlength="40" value="Text B" placeholder="e.g. Company B"></label>
+            <label for="textB" class="hint">Second text</label>
+            <textarea id="textB" rows="10" spellcheck="false" placeholder="Paste the second text…"></textarea>
+            <span id="countB" class="muted">0 words</span>
+          </div>
+        </div>
+      </div>
       <div class="row-between">
-        <span id="charcount" class="muted">0 words</span>
         <span class="row-gap">
           <button type="button" id="example" class="link-btn">Load example text</button>
           <button type="button" id="clear" class="link-btn">Clear</button>
@@ -50,6 +77,7 @@
           <label class="choice"><input type="radio" name="order" value="frequency" checked> by frequency</label>
           <label class="choice"><input type="radio" name="order" value="term"> by term name</label>
           <label class="choice"><input type="radio" name="order" value="unordered"> unordered</label>
+          <label class="choice" id="orderBalance" hidden><input type="radio" name="order" value="balance"> <span id="orderBalanceLabel">first text → shared → second text</span></label>
         </fieldset>
       </div>
 
@@ -61,10 +89,11 @@
           <label class="choice"><input type="radio" name="rotation" value="none" checked> horizontal</label>
           <label class="choice"><input type="radio" name="rotation" value="some"> some vertical</label>
         </fieldset>
-        <fieldset class="field"><legend>Colours</legend>
+        <fieldset class="field" id="paletteField"><legend>Colours</legend>
           <label class="choice"><input type="radio" name="palette" value="blue" checked> blue shades</label>
           <label class="choice"><input type="radio" name="palette" value="black"> black</label>
         </fieldset>
+        <p id="compareColorNote" class="hint" hidden>In a comparison, colour shows which text uses the word more. Blue is the first text, orange the second, grey means both use it about equally.</p>
       </div>
 
       <h3>Additional input for the SVG and PDF rendering</h3>
@@ -100,6 +129,7 @@
       </div>
     </div>
     <p id="summary" class="muted"></p>
+    <div id="legend" class="legend" hidden></div>
     <div class="tabs" role="tablist">
       <button type="button" role="tab" data-view="tag" aria-selected="true">Tag cloud</button>
       <button type="button" role="tab" data-view="word" aria-selected="false">Word cloud</button>
@@ -117,6 +147,9 @@
       “low-quality”). Words shorter than the minimum number of characters, or occurring less often than the minimum
       frequency, are left out. With <em>remove</em>, common function words (“the”, “and”, “og”, “och”…) are dropped
       using a list for the chosen language.</p>
+    <p><strong>Compare two texts</strong> draws every word from both in the same cloud. The size is the combined count.
+      The colour is which text uses the word more often <em>for its length</em>, so a long report does not drown a short one.
+      Blue is the first text, orange the second, and grey means both use the word about equally. Lighter shades are a milder lean.</p>
     <p>The <strong>tag cloud</strong> lists the words like a text, in the chosen order. The <strong>word cloud</strong>
       packs the most frequent words around the centre; the same text and options always give the same cloud.
       Font size grows with the square root of the frequency, so one dominant word doesn't shrink the rest.

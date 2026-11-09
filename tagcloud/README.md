@@ -13,6 +13,7 @@ no dependencies, no external fonts or scripts.
 - Ordering: by frequency, by term name, or unordered (order of first appearance)
 - For the SVG/PDF rendering: method (max 55 characters), query (max 55), title (max 45)
 - Word cloud: maximum number of words, horizontal or some vertical words, blue shades or black
+- Compare two texts in one cloud: size is the combined count; colour (blue / grey / orange) shows which text uses the word more, relative to each text's length. Extra tag order: first text → shared → second text.
 
 ## Files
 

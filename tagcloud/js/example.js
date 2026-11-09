@@ -1,3 +1,16 @@
+// Short comparison example: two companies on the same topic, written for this tool.
+const repeat = (sentence, n) => Array.from({ length: n }, () => sentence).join(" ");
+export const COMPARE_A = [
+  repeat("North Energy says wind power can cut household bills.", 3),
+  repeat("North Energy says offshore wind farms are ready for parliament.", 3),
+  repeat("Critics say North Energy wind turbines crowd the coast.", 2),
+].join(" ");
+export const COMPARE_B = [
+  repeat("South Power says nuclear power can cut household bills.", 3),
+  repeat("South Power says inland nuclear plants are ready for parliament.", 3),
+  repeat("Critics say South Power nuclear waste burdens the coast.", 2),
+].join(" ");
+
 // Example input: Nordicamo's own About text (no third-party copyright).
 export const EXAMPLE_TEXT = `Nordicamo (Nordic Alternative Media Observatory) is a comparative platform for studying alternative news media in Denmark, Finland, Norway and Sweden.
 

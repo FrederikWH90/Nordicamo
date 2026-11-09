@@ -1,15 +1,19 @@
 // Page wiring: read the form, count, lay out, render and export.
 // Nothing is sent anywhere; all processing happens in this browser tab.
 
-import { LIMITS, clip, countWords, fontScale, orderTags, summarize, tokenize } from "./core.js";
+import { COMPARE_COLORS, LIMITS, clip, compareWords, countWords, fontScale, orderTags, summarize, tokenize } from "./core.js";
 import { STOPWORD_LANGUAGES, stopwordSet } from "./stopwords.js";
 import { estimateWidth, tagCloudLayout, wordCloudLayout } from "./layout.js";
 import { CLOUD_FONT, binaryStringToBytes, composeDocument, toDelimited, toJSON, toPDF, toSVG } from "./export.js";
-import { EXAMPLE_TEXT } from "./example.js";
+import { COMPARE_A, COMPARE_B, EXAMPLE_TEXT } from "./example.js";
 
 const $ = (id) => document.getElementById(id);
 const els = {
   form: $("form"), text: $("text"), charcount: $("charcount"), example: $("example"), clear: $("clear"),
+  inputOne: $("inputOne"), inputCompare: $("inputCompare"),
+  textA: $("textA"), textB: $("textB"), nameA: $("nameA"), nameB: $("nameB"),
+  countA: $("countA"), countB: $("countB"), orderBalance: $("orderBalance"), orderBalanceLabel: $("orderBalanceLabel"),
+  paletteField: $("paletteField"), compareColorNote: $("compareColorNote"), legend: $("legend"),
   minChars: $("minChars"), minFreq: $("minFreq"), stopLang: $("stopLang"), maxWords: $("maxWords"),
   method: $("method"), query: $("query"), title: $("title"), credit: $("credit"),
   results: $("results"), summary: $("summary"), note: $("note"), view: $("view"),
@@ -25,7 +29,7 @@ const PALETTES = {
 const CLOUD_WIDTH = 900;
 const WORD_CLOUD_HEIGHT = 560;
 
-let state = { view: "tag", tags: [], last: null };
+let state = { view: "tag", tags: [], last: null, compare: null };
 
 // Real font metrics for layout, so SVG/PDF/PNG match what is measured.
 const canvas = document.createElement("canvas").getContext("2d");
@@ -37,6 +41,44 @@ function measure(word, size) {
 
 for (const [value, label] of Object.entries(STOPWORD_LANGUAGES)) {
   els.stopLang.add(new Option(label, value));
+}
+
+function comparing() {
+  return radio("mode") === "compare";
+}
+
+function sideName(which) {
+  const raw = which === "a" ? els.nameA.value : els.nameB.value;
+  const fallback = which === "a" ? "Text A" : "Text B";
+  return clip(raw, 40) || fallback;
+}
+
+function legendItems() {
+  const a = sideName("a");
+  const b = sideName("b");
+  return [
+    { label: a, color: COMPARE_COLORS.a },
+    { label: `more ${a}`, color: COMPARE_COLORS["a-more"] },
+    { label: "both equally", color: COMPARE_COLORS.shared },
+    { label: `more ${b}`, color: COMPARE_COLORS["b-more"] },
+    { label: b, color: COMPARE_COLORS.b },
+  ];
+}
+
+function syncMode() {
+  const on = comparing();
+  els.inputOne.hidden = on;
+  els.inputCompare.hidden = !on;
+  els.orderBalance.hidden = !on;
+  els.paletteField.hidden = on;
+  els.compareColorNote.hidden = !on;
+  const a = sideName("a");
+  const b = sideName("b");
+  els.orderBalanceLabel.textContent = `${a} → shared → ${b}`;
+  if (!on && radio("order") === "balance") {
+    document.querySelector('input[name="order"][value="frequency"]').checked = true;
+  }
+  updateCount();
 }
 
 function readOptions() {
@@ -78,46 +120,82 @@ function creditLine() {
   return `Made with the Nordicamo Tag Cloud Generator · tagcloud.nordicamo.org · ${date}`;
 }
 
-function buildDocument(opts, view = state.view) {
+function paint(tags, opts) {
+  if (!state.compare) return colorFor(tags, opts.palette);
+  return (item) => COMPARE_COLORS[item.side] || COMPARE_COLORS.shared;
+}
+
+function buildDocument(opts, view = state.view, { withLegend = false } = {}) {
   const { tags } = state;
-  const base = { title: opts.title, method: opts.method, query: opts.query, credit: opts.credit ? creditLine() : "" };
+  const base = {
+    title: opts.title, method: opts.method, query: opts.query, credit: opts.credit ? creditLine() : "",
+    legend: withLegend && state.compare ? legendItems() : [],
+  };
   if (view === "word") {
     const top = orderTags(tags, "frequency").slice(0, opts.maxWords);
     const size = fontScale(top, 12, 64);
     const { items, skipped } = wordCloudLayout(top, {
       width: CLOUD_WIDTH, height: WORD_CLOUD_HEIGHT, size, measure, rotation: opts.rotation,
     });
-    const doc = composeDocument(items, { ...base, width: CLOUD_WIDTH, cloudHeight: WORD_CLOUD_HEIGHT, color: colorFor(top, opts.palette) });
+    const doc = composeDocument(items, { ...base, width: CLOUD_WIDTH, cloudHeight: WORD_CLOUD_HEIGHT, color: paint(top, opts) });
     return { doc, shown: items.length, skipped: skipped.length, capped: tags.length - top.length };
   }
   const ordered = orderTags(tags, opts.ordering);
   const size = fontScale(ordered, 13, 48);
   const { items, height } = tagCloudLayout(ordered, { width: CLOUD_WIDTH - 56, size, measure });
   const shifted = items.map((i) => ({ ...i, x: i.x + 28 }));
-  const doc = composeDocument(shifted, { ...base, width: CLOUD_WIDTH, cloudHeight: height, color: colorFor(ordered, opts.palette) });
+  const doc = composeDocument(shifted, { ...base, width: CLOUD_WIDTH, cloudHeight: height, color: paint(ordered, opts) });
   return { doc, shown: items.length, skipped: 0, capped: 0 };
+}
+
+function renderLegend() {
+  els.legend.replaceChildren();
+  if (!state.compare) { els.legend.hidden = true; return; }
+  els.legend.hidden = false;
+  for (const item of legendItems()) {
+    const span = document.createElement("span");
+    const swatch = document.createElement("span");
+    swatch.className = "swatch";
+    swatch.style.background = item.color;
+    span.append(swatch, document.createTextNode(item.label));
+    els.legend.append(span);
+  }
 }
 
 function renderTable(tags) {
   const ordered = orderTags(tags, readOptions().ordering);
   const max = Math.max(...ordered.map((t) => t.count));
+  const compared = Boolean(state.compare);
   const rows = ordered.map((t, i) => {
     const tr = document.createElement("tr");
     const bar = document.createElement("span");
     bar.className = "bar";
     bar.style.width = `${(t.count / max) * 100}%`;
-    const cells = [String(i + 1), t.word, String(t.count)];
+    if (compared) bar.style.background = COMPARE_COLORS[t.side] || COMPARE_COLORS.shared;
+    const cells = compared
+      ? [String(i + 1), t.word, String(t.countA), String(t.countB), String(t.count)]
+      : [String(i + 1), t.word, String(t.count)];
     cells.forEach((value, c) => {
       const td = document.createElement("td");
       td.textContent = value;
-      if (c === 2) { td.className = "num"; td.prepend(bar); }
+      if (c === cells.length - 1) { td.className = "num"; td.prepend(bar); }
       tr.append(td);
     });
     return tr;
   });
   const table = document.createElement("table");
   table.className = "freq";
-  table.innerHTML = "<thead><tr><th>#</th><th>Word</th><th class='num'>Frequency</th></tr></thead>";
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const headings = compared ? ["#", "Word", sideName("a"), sideName("b"), "Total"] : ["#", "Word", "Frequency"];
+  headings.forEach((label, i) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    if (i >= 2) th.className = "num";
+    headRow.append(th);
+  });
+  head.append(headRow);
+  table.append(head);
   const tbody = document.createElement("tbody");
   tbody.append(...rows);
   table.append(tbody);
@@ -125,23 +203,42 @@ function renderTable(tags) {
 }
 
 function run() {
-  const text = els.text.value;
   updateCount();
   const opts = readOptions();
   els.stopLang.disabled = opts.stop !== "remove";
-  if (!text.trim()) {
+  const stopwords = opts.stop === "remove" ? stopwordSet(opts.stopLang) : null;
+  const on = comparing();
+  const text = els.text.value;
+  if (on ? !els.textA.value.trim() && !els.textB.value.trim() : !text.trim()) {
     els.results.hidden = true;
     return;
   }
-  const stopwords = opts.stop === "remove" ? stopwordSet(opts.stopLang) : null;
-  state.tags = countWords(text, { minChars: opts.minChars, minFrequency: opts.minFrequency, stopwords });
-  const s = summarize(text, state.tags);
+  if (on) {
+    const compared = compareWords(els.textA.value, els.textB.value, {
+      minChars: opts.minChars, minFrequency: opts.minFrequency, stopwords,
+    });
+    const a = sideName("a");
+    const b = sideName("b");
+    state.compare = { a, b };
+    state.tags = compared.tags.map((t) => ({ ...t, tip: `${t.word}: ${t.countA} in ${a}, ${t.countB} in ${b}` }));
+    els.summary.textContent =
+      `${a}: ${compared.lengthA.toLocaleString("en")} words. ${b}: ${compared.lengthB.toLocaleString("en")} words. ` +
+      `Showing ${compared.tags.length.toLocaleString("en")} words with at least ${opts.minChars} characters that occur at least ` +
+      `${opts.minFrequency} ${opts.minFrequency === 1 ? "time" : "times"} in the two texts together. ` +
+      `Size is the combined count. Colour is which text uses the word more, relative to its length.` +
+      (stopwords ? ` ${STOPWORD_LANGUAGES[opts.stopLang]} stopwords removed.` : "");
+  } else {
+    state.compare = null;
+    state.tags = countWords(text, { minChars: opts.minChars, minFrequency: opts.minFrequency, stopwords });
+    const s = summarize(text, state.tags);
+    els.summary.textContent =
+      `${s.totalWords.toLocaleString("en")} words in total, ${s.uniqueWords.toLocaleString("en")} different. ` +
+      `Showing ${s.shownTags.toLocaleString("en")} words with at least ${opts.minChars} characters that occur at least ` +
+      `${opts.minFrequency} ${opts.minFrequency === 1 ? "time" : "times"}` +
+      (stopwords ? `, ${STOPWORD_LANGUAGES[opts.stopLang]} stopwords removed.` : ".");
+  }
   els.results.hidden = false;
-  els.summary.textContent =
-    `${s.totalWords.toLocaleString("en")} words in total, ${s.uniqueWords.toLocaleString("en")} different. ` +
-    `Showing ${s.shownTags.toLocaleString("en")} words with at least ${opts.minChars} characters that occur at least ` +
-    `${opts.minFrequency} ${opts.minFrequency === 1 ? "time" : "times"}` +
-    (stopwords ? `, ${STOPWORD_LANGUAGES[opts.stopLang]} stopwords removed.` : ".");
+  renderLegend();
 
   els.view.replaceChildren();
   els.note.hidden = true;
@@ -194,14 +291,16 @@ async function exportAs(kind) {
   if (!state.tags.length) return;
   const opts = readOptions();
   const ordered = orderTags(state.tags, opts.ordering);
+  const labels = state.compare ? { a: state.compare.a, b: state.compare.b } : null;
   const meta = { title: opts.title || undefined, method: opts.method || undefined, query: opts.query || undefined,
                  generated: new Date().toISOString(), tool: "Nordicamo Tag Cloud Generator" };
-  if (kind === "csv") return download(new Blob([toDelimited(ordered, ",")], { type: "text/csv;charset=utf-8" }), `${fileStem(kind)}.csv`);
-  if (kind === "tsv") return download(new Blob([toDelimited(ordered, "\t")], { type: "text/tab-separated-values;charset=utf-8" }), `${fileStem(kind)}.tsv`);
+  if (state.compare) { meta.text_a = state.compare.a; meta.text_b = state.compare.b; }
+  if (kind === "csv") return download(new Blob([toDelimited(ordered, ",", labels)], { type: "text/csv;charset=utf-8" }), `${fileStem(kind)}.csv`);
+  if (kind === "tsv") return download(new Blob([toDelimited(ordered, "\t", labels)], { type: "text/tab-separated-values;charset=utf-8" }), `${fileStem(kind)}.tsv`);
   if (kind === "json") return download(new Blob([toJSON(ordered, meta)], { type: "application/json" }), `${fileStem(kind)}.json`);
 
   // Image formats export the selected cloud; from the table view, the tag cloud.
-  const { doc } = buildDocument(opts, state.view === "word" ? "word" : "tag");
+  const { doc } = buildDocument(opts, state.view === "word" ? "word" : "tag", { withLegend: true });
   const svg = toSVG(doc);
   if (kind === "svg") return download(new Blob([svg], { type: "image/svg+xml" }), `${fileStem(kind)}.svg`);
   if (kind === "pdf") return download(new Blob([binaryStringToBytes(toPDF(doc, measure))], { type: "application/pdf" }), `${fileStem(kind)}.pdf`);
@@ -223,9 +322,14 @@ async function exportAs(kind) {
 
 // --- events --------------------------------------------------------------------
 
+function wordCountLabel(n) {
+  return `${n.toLocaleString("en")} ${n === 1 ? "word" : "words"}`;
+}
+
 function updateCount() {
-  const n = tokenize(els.text.value).length;
-  els.charcount.textContent = `${n.toLocaleString("en")} ${n === 1 ? "word" : "words"}`;
+  els.charcount.textContent = wordCountLabel(tokenize(els.text.value).length);
+  els.countA.textContent = wordCountLabel(tokenize(els.textA.value).length);
+  els.countB.textContent = wordCountLabel(tokenize(els.textB.value).length);
 }
 
 let timer;
@@ -236,14 +340,41 @@ const rerunSoon = () => {
 };
 
 els.form.addEventListener("submit", (e) => { e.preventDefault(); run(); els.results.scrollIntoView({ behavior: "smooth" }); });
-els.text.addEventListener("input", updateCount);
-els.text.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); els.form.requestSubmit(); }
+for (const box of [els.text, els.textA, els.textB]) {
+  box.addEventListener("input", updateCount);
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); els.form.requestSubmit(); }
+  });
+}
+const textBoxes = new Set([els.text, els.textA, els.textB]);
+els.form.addEventListener("change", (e) => {
+  if (e.target.name === "mode") syncMode();
+  if (e.target === els.nameA || e.target === els.nameB) syncMode();
+  if (!textBoxes.has(e.target)) rerunSoon();
+  else updateCount();
 });
-els.form.addEventListener("change", (e) => { if (e.target !== els.text) rerunSoon(); else updateCount(); });
-els.form.addEventListener("input", (e) => { if (e.target !== els.text) rerunSoon(); });
-els.example.addEventListener("click", () => { els.text.value = EXAMPLE_TEXT; updateCount(); els.form.requestSubmit(); });
-els.clear.addEventListener("click", () => { els.text.value = ""; updateCount(); els.results.hidden = true; els.text.focus(); });
+els.form.addEventListener("input", (e) => { if (!textBoxes.has(e.target)) rerunSoon(); else updateCount(); });
+els.example.addEventListener("click", () => {
+  if (comparing()) {
+    els.nameA.value = "North Energy";
+    els.nameB.value = "South Power";
+    els.textA.value = COMPARE_A;
+    els.textB.value = COMPARE_B;
+    syncMode();
+  } else {
+    els.text.value = EXAMPLE_TEXT;
+    updateCount();
+  }
+  els.form.requestSubmit();
+});
+els.clear.addEventListener("click", () => {
+  els.text.value = "";
+  els.textA.value = "";
+  els.textB.value = "";
+  updateCount();
+  els.results.hidden = true;
+  (comparing() ? els.textA : els.text).focus();
+});
 
 document.querySelectorAll('[role="tab"]').forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -267,4 +398,4 @@ els.outputMenu.addEventListener("click", (e) => {
 document.addEventListener("click", closeMenu);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
 
-updateCount();
+syncMode();

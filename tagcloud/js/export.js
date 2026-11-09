@@ -3,17 +3,32 @@
 
 export const CLOUD_FONT = "Helvetica, Arial, sans-serif";
 
-export function toDelimited(tags, delimiter = ",") {
+export function toDelimited(tags, delimiter = ",", labels = null) {
   const cell = (v) => {
     const s = String(v);
     return /[",\t\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const rows = [["word", "frequency"], ...tags.map((t) => [t.word, t.count])];
+  const compared = tags.some((t) => t.countA !== undefined);
+  const header = compared
+    ? ["word", "frequency", labels?.a || "text_a", labels?.b || "text_b"]
+    : ["word", "frequency"];
+  const rows = [
+    header,
+    ...tags.map((t) => (compared ? [t.word, t.count, t.countA ?? 0, t.countB ?? 0] : [t.word, t.count])),
+  ];
   return rows.map((r) => r.map(cell).join(delimiter)).join("\n") + "\n";
 }
 
 export function toJSON(tags, meta = {}) {
-  return JSON.stringify({ ...meta, tags: tags.map(({ word, count }) => ({ word, frequency: count })) }, null, 2) + "\n";
+  const rows = tags.map((t) => {
+    const row = { word: t.word, frequency: t.count };
+    if (t.countA !== undefined) {
+      row.text_a = t.countA;
+      row.text_b = t.countB ?? 0;
+    }
+    return row;
+  });
+  return JSON.stringify({ ...meta, tags: rows }, null, 2) + "\n";
 }
 
 const escapeXml = (s) =>
@@ -24,31 +39,67 @@ const escapeXml = (s) =>
  * and method/query/credit lines at the bottom. `items` come from layout.js.
  * Returns the geometry once, so SVG and PDF draw exactly the same picture.
  */
-export function composeDocument(items, { width, cloudHeight, title = "", method = "", query = "", credit = "", color }) {
+function legendRows(legend, width, margin) {
+  const rows = [];
+  let row = [];
+  let used = margin;
+  for (const item of legend) {
+    const label = [...String(item.label ?? "")].slice(0, 28).join("");
+    const span = 16 + label.length * 6.4 + 16;
+    if (row.length && used + span > width - margin) {
+      rows.push(row);
+      row = [];
+      used = margin;
+    }
+    row.push({ ...item, label, x: used });
+    used += span;
+  }
+  if (row.length) rows.push(row);
+  return rows;
+}
+
+export function composeDocument(items, { width, cloudHeight, title = "", method = "", query = "", credit = "", color, legend = [] }) {
   const margin = 28;
   const titleH = title ? 40 : 0;
+  const legendRowsDrawn = legendRows(legend, width, margin);
+  const legendH = legendRowsDrawn.length ? 8 + legendRowsDrawn.length * 22 : 0;
   const notes = [method && `Method: ${method}`, query && `Query: ${query}`, credit].filter(Boolean);
   const notesH = notes.length ? 14 + notes.length * 16 : 0;
-  const height = margin + titleH + cloudHeight + notesH + margin;
+  const height = margin + titleH + cloudHeight + legendH + notesH + margin;
   const texts = [];
+  const shapes = [];
   if (title) texts.push({ text: title, x: width / 2, y: margin + 22, size: 22, bold: true, anchor: "middle", color: "#111111" });
   for (const item of items) {
     texts.push({
       text: item.word, x: item.x, y: margin + titleH + item.y, size: item.size, w: item.textWidth ?? null,
       rotate: item.rotate || 0, anchor: "middle", color: color(item), count: item.count,
+      tip: item.tip,
     });
   }
-  notes.forEach((line, i) => {
-    texts.push({ text: line, x: margin, y: margin + titleH + cloudHeight + 14 + (i + 1) * 16 - 4, size: 11, anchor: "start", color: "#5a6a7a" });
+  legendRowsDrawn.forEach((row, rowIndex) => {
+    const y = margin + titleH + cloudHeight + 10 + rowIndex * 22;
+    for (const item of row) {
+      shapes.push({ x: item.x, y, w: 12, h: 12, color: item.color });
+      texts.push({ text: item.label, x: item.x + 16, y: y + 11, size: 11, anchor: "start", color: "#1f2933" });
+    }
   });
-  return { width, height, texts };
+  notes.forEach((line, i) => {
+    texts.push({
+      text: line, x: margin, y: margin + titleH + cloudHeight + legendH + 14 + (i + 1) * 16 - 4,
+      size: 11, anchor: "start", color: "#5a6a7a",
+    });
+  });
+  return { width, height, texts, shapes };
 }
 
 export function toSVG(doc) {
+  const shapes = (doc.shapes || []).map((s) =>
+    `<rect x="${s.x.toFixed(1)}" y="${s.y.toFixed(1)}" width="${s.w}" height="${s.h}" rx="2" fill="${s.color}"/>`);
   const parts = doc.texts.map((t) => {
     const baseline = t.anchor === "middle" && t.count !== undefined ? t.size * 0.35 : 0;
     const weight = t.bold ? ' font-weight="700"' : "";
-    const title = t.count !== undefined ? `<title>${escapeXml(t.text)}: ${t.count}</title>` : "";
+    const titleText = t.tip || (t.count !== undefined ? `${t.text}: ${t.count}` : "");
+    const title = titleText ? `<title>${escapeXml(titleText)}</title>` : "";
     if (t.rotate) {
       return `<text transform="translate(${t.x.toFixed(1)} ${t.y.toFixed(1)}) rotate(${t.rotate})" x="0" y="${baseline.toFixed(1)}" font-size="${t.size.toFixed(1)}" text-anchor="middle" fill="${t.color}"${weight}>${title}${escapeXml(t.text)}</text>`;
     }
@@ -57,6 +108,7 @@ export function toSVG(doc) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${doc.width}" height="${doc.height}" viewBox="0 0 ${doc.width} ${doc.height}" font-family="${CLOUD_FONT}">
 <rect width="100%" height="100%" fill="#ffffff"/>
+${shapes.join("\n")}
 ${parts.join("\n")}
 </svg>
 `;
@@ -94,6 +146,9 @@ const rgb = (hex) => {
 export function toPDF(doc, measure) {
   const H = doc.height;
   const ops = ["1 1 1 rg", `0 0 ${doc.width} ${H} re f`];
+  for (const s of doc.shapes || []) {
+    ops.push(`${rgb(s.color)} rg ${s.x.toFixed(2)} ${(H - s.y - s.h).toFixed(2)} ${s.w} ${s.h} re f`);
+  }
   for (const t of doc.texts) {
     const font = t.bold ? "/F2" : "/F1";
     const width = t.w ?? measure(t.text, t.size);

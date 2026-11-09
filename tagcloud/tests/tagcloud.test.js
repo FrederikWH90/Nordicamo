@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { clip, countWords, fontScale, orderTags, summarize, tokenize } from "../js/core.js";
+import { COMPARE_COLORS, clip, compareWords, countWords, fontScale, leanSide, orderTags, summarize, tokenize } from "../js/core.js";
 import { estimateWidth, fitToFrame, tagCloudLayout, wordCloudLayout } from "../js/layout.js";
 import { composeDocument, toDelimited, toJSON, toPDF, toSVG, winAnsi } from "../js/export.js";
 import { stopwordSet } from "../js/stopwords.js";
@@ -46,6 +46,43 @@ test("ordering by frequency, by term and unordered (reading order)", () => {
   assert.deepEqual(orderTags(tags, "frequency").map((t) => t.word), ["beta", "alpha", "gamma"]);
   assert.deepEqual(orderTags(tags, "term").map((t) => t.word), ["alpha", "beta", "gamma"]);
   assert.deepEqual(orderTags(tags, "unordered").map((t) => t.word), ["beta", "alpha", "gamma"]);
+});
+
+test("comparison colours follow relative use, not raw length", () => {
+  const shortA = "wind ".repeat(3); // 3 tokens, all wind
+  const longB = `${"wind ".repeat(3)}${"nuclear ".repeat(90)}`; // same 3 wind mentions, drowned in raw counts
+  const { tags, lengthA, lengthB } = compareWords(shortA, longB, { minChars: 3, minFrequency: 1 });
+  const byWord = Object.fromEntries(tags.map((t) => [t.word, t]));
+  assert.equal(lengthA, 3);
+  assert.ok(lengthB > 90);
+  assert.equal(byWord.wind.count, 6);
+  assert.equal(byWord.wind.side, "a", "the short text is entirely about wind");
+  assert.equal(byWord.nuclear.countA, 0);
+  assert.equal(byWord.nuclear.side, "b");
+  assert.equal(COMPARE_COLORS[byWord.wind.side], "#0C4A8A");
+  assert.equal(COMPARE_COLORS.b, "#C25100");
+  assert.equal(COMPARE_COLORS.shared, "#5C6770");
+
+  const equal = compareWords("alpha alpha alpha", "alpha alpha alpha", { minChars: 3, minFrequency: 1 });
+  assert.equal(equal.tags[0].side, "shared");
+  assert.equal(leanSide(0.2), "a-more");
+  assert.equal(leanSide(-0.2), "b-more");
+});
+
+test("comparison ordering runs from the first text through shared words to the second", () => {
+  const { tags } = compareWords("alpha alpha alpha beta", "gamma gamma gamma beta", { minChars: 3, minFrequency: 1 });
+  assert.deepEqual(orderTags(tags, "balance").map((t) => t.word), ["alpha", "beta", "gamma"]);
+  const beta = tags.find((t) => t.word === "beta");
+  assert.equal(beta.countA, 1);
+  assert.equal(beta.countB, 1);
+  assert.equal(beta.count, 2);
+});
+
+test("comparison minimum frequency uses the combined count", () => {
+  const { tags } = compareWords("alpha alpha", "alpha", { minChars: 3, minFrequency: 3 });
+  assert.deepEqual(tags.map((t) => t.word), ["alpha"]);
+  const dropped = compareWords("alpha alpha", "beta", { minChars: 3, minFrequency: 3 });
+  assert.equal(dropped.tags.length, 0);
 });
 
 test("font scale is monotonic and bounded", () => {
@@ -104,6 +141,11 @@ test("delimited and JSON exports", () => {
   const json = JSON.parse(toJSON(tags, { title: "T" }));
   assert.equal(json.title, "T");
   assert.deepEqual(json.tags[0], { word: 'say "hi"', frequency: 2 });
+  const compared = [{ word: "wind", count: 6, countA: 3, countB: 3 }];
+  assert.equal(toDelimited(compared, ",", { a: "North, Energy", b: "South" }),
+    'word,frequency,"North, Energy",South\nwind,6,3,3\n');
+  const comparedJson = JSON.parse(toJSON(compared, { text_a: "North Energy" }));
+  assert.deepEqual(comparedJson.tags[0], { word: "wind", frequency: 6, text_a: 3, text_b: 3 });
 });
 
 test("SVG includes title, method, query and escapes text", () => {
@@ -114,6 +156,19 @@ test("SVG includes title, method, query and escapes text", () => {
   assert.ok(svg.includes(">My cloud<") && svg.includes("Method: Word frequency") && svg.includes("Query: AFP article"));
   assert.ok(svg.includes("&lt;b&gt;&amp;") && !svg.includes("<b>&"));
   assert.ok(svg.includes("rotate(-90)"));
+  assert.ok(!svg.includes("<rect x="), "a single-text cloud has no comparison legend");
+});
+
+test("comparison legend is drawn into the SVG and PDF", () => {
+  const items = [{ word: "wind", count: 6, countA: 5, countB: 1, side: "a", tip: "wind: 5 in North, 1 in South", x: 100, y: 40, size: 20, rotate: 0 }];
+  const legend = [{ label: "North Energy", color: COMPARE_COLORS.a }, { label: "South Power", color: COMPARE_COLORS.b }];
+  const doc = composeDocument(items, { width: 500, cloudHeight: 80, color: (item) => COMPARE_COLORS[item.side], legend });
+  const svg = toSVG(doc);
+  assert.ok(svg.includes(`fill="${COMPARE_COLORS.a}"`) && svg.includes("North Energy") && svg.includes("South Power"));
+  assert.ok(svg.includes("wind: 5 in North, 1 in South"));
+  assert.ok(doc.shapes.length === 2);
+  const pdf = toPDF(doc, estimateWidth);
+  assert.ok(pdf.includes(" re f"));
 });
 
 test("PDF is structurally valid with correct cross-reference offsets", () => {
