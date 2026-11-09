@@ -22,31 +22,56 @@ function contentTokens(text, { minChars = 3, stopwords = null } = {}) {
   return { tokens, kept };
 }
 
-function termUnits(kept, terms) {
-  const phrases = (n) => {
-    const out = [];
-    for (let i = 0; i <= kept.length - n; i++) out.push(kept.slice(i, i + n).join(" "));
-    return out;
-  };
-  if (terms === "bigrams") return phrases(2);
-  if (terms === "trigrams") return phrases(3);
-  if (terms === "all") return [...kept, ...phrases(2), ...phrases(3)];
-  return kept;
-}
-
-function tally(text, { minChars = 3, stopwords = null, terms = "words" } = {}) {
-  const { tokens, kept } = contentTokens(text, { minChars, stopwords });
+function countSequence(items) {
   const counts = new Map();
   const order = new Map();
-  termUnits(kept, terms).forEach((unit, i) => {
+  items.forEach((unit, i) => {
     if (!counts.has(unit)) order.set(unit, i);
     counts.set(unit, (counts.get(unit) ?? 0) + 1);
   });
+  return { counts, order };
+}
+
+function phrases(kept, n) {
+  const out = [];
+  for (let i = 0; i <= kept.length - n; i++) out.push(kept.slice(i, i + n).join(" "));
+  return out;
+}
+
+// A phrase is certain when it accounts for most of the rarer word's occurrences:
+// "york" almost only inside "new york", not every pair that happens to sit together.
+export const PHRASE_CERTAINTY = 0.6;
+
+function isCertain(phrase, phraseCount, wordCounts) {
+  const weakest = Math.min(...phrase.split(" ").map((part) => wordCounts.get(part) || 0));
+  return weakest > 0 && phraseCount / weakest >= PHRASE_CERTAINTY;
+}
+
+function tally(text, { minChars = 3, minFrequency = 3, stopwords = null } = {}) {
+  const { tokens, kept } = contentTokens(text, { minChars, stopwords });
+  const words = countSequence(kept);
+  const bigrams = countSequence(phrases(kept, 2));
+  const trigrams = countSequence(phrases(kept, 3));
+  const certain = (bag) => [...bag.counts].filter(([phrase, n]) => n >= minFrequency && isCertain(phrase, n, words.counts));
+  const keptTrigrams = certain(trigrams);
+  const trigramCounts = new Map(keptTrigrams);
+  const keptBigrams = certain(bigrams).filter(([phrase, n]) => {
+    for (const [tri, triCount] of trigramCounts) {
+      if (tri.includes(phrase) && triCount >= n * 0.8) return false;
+    }
+    return true;
+  });
+  const counts = new Map(words.counts);
+  const order = new Map(words.order);
+  for (const [phrase, n] of [...keptBigrams, ...keptTrigrams]) {
+    counts.set(phrase, n);
+    order.set(phrase, (phrase.split(" ").length === 2 ? bigrams : trigrams).order.get(phrase));
+  }
   return { counts, order, total: tokens.length };
 }
 
-export function countWords(text, { minChars = 3, minFrequency = 3, stopwords = null, terms = "words" } = {}) {
-  const { counts, order } = tally(text, { minChars, stopwords, terms });
+export function countWords(text, { minChars = 3, minFrequency = 3, stopwords = null } = {}) {
+  const { counts, order } = tally(text, { minChars, minFrequency, stopwords });
   return [...counts]
     .filter(([, n]) => n >= minFrequency)
     .map(([word, count]) => ({ word, count, order: order.get(word) }));
@@ -90,9 +115,9 @@ export function leanSide(lean) {
  * from 1 (only the first text) to -1 (only the second). A long text therefore
  * does not drown a short one just by having more raw mentions.
  */
-export function compareWords(textA, textB, { minChars = 3, minFrequency = 3, stopwords = null, terms = "words" } = {}) {
-  const left = tally(textA, { minChars, stopwords, terms });
-  const right = tally(textB, { minChars, stopwords, terms });
+export function compareWords(textA, textB, { minChars = 3, minFrequency = 3, stopwords = null } = {}) {
+  const left = tally(textA, { minChars, minFrequency, stopwords });
+  const right = tally(textB, { minChars, minFrequency, stopwords });
   const tags = [];
   for (const word of new Set([...left.counts.keys(), ...right.counts.keys()])) {
     const countA = left.counts.get(word) ?? 0;

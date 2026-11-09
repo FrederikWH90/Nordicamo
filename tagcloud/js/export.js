@@ -104,38 +104,6 @@ function shapeSVG(s) {
   return `<rect x="${s.x.toFixed(1)}" y="${s.y.toFixed(1)}" width="${s.w}" height="${s.h}" rx="2" fill="${s.color}"/>`;
 }
 
-export function plotDocument(plot, { title = "", nameA = "Text A", nameB = "Text B", color }) {
-  const shapes = [
-    { type: "line", x1: plot.origin.x, y1: plot.origin.y, x2: plot.xEnd.x, y2: plot.xEnd.y, color: "#b7c0ca" },
-    { type: "line", x1: plot.origin.x, y1: plot.origin.y, x2: plot.yEnd.x, y2: plot.yEnd.y, color: "#b7c0ca" },
-    { type: "line", x1: plot.diagonal.x1, y1: plot.diagonal.y1, x2: plot.diagonal.x2, y2: plot.diagonal.y2, color: "#5c6770", dash: "2 5" },
-  ];
-  for (const point of plot.points) {
-    shapes.push({
-      type: "circle", cx: point.x, cy: point.y, r: 4.5, color: color(point),
-      tip: point.tip || `${point.word}: ${point.countA ?? 0} and ${point.countB ?? 0}`,
-    });
-  }
-  const texts = [];
-  if (title) texts.push({ text: title, x: plot.width / 2, y: 22, size: 18, bold: true, anchor: "middle", color: "#111111" });
-  texts.push({ text: `${nameA} →`, x: plot.xEnd.x, y: plot.origin.y + 28, size: 13, anchor: "end", color: "#0C4A8A" });
-  texts.push({ text: `↑ ${nameB}`, x: plot.origin.x + 8, y: Math.max(16, plot.yEnd.y - 8), size: 13, anchor: "start", color: "#C25100" });
-  texts.push({
-    text: "equal share",
-    x: plot.diagonal.x2 - 86,
-    y: plot.diagonal.y2 + 18,
-    size: 11, anchor: "start", color: "#5c6770",
-  });
-  for (const point of plot.points) {
-    if (!point.labeled) continue;
-    texts.push({
-      text: point.word, x: point.labelX, y: point.labelY, size: 12, anchor: "start",
-      color: color(point), tip: point.tip, count: point.count,
-    });
-  }
-  return { width: plot.width, height: plot.height, texts, shapes };
-}
-
 export function toSVG(doc) {
   const shapes = (doc.shapes || []).map(shapeSVG);
   const parts = doc.texts.map((t) => {

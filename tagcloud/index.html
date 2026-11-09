@@ -73,12 +73,6 @@
           <label class="choice"><input type="radio" name="stop" value="remove"> remove · fjern</label>
           <select id="stopLang" aria-label="Stopword language, stopordssprog" disabled></select>
         </fieldset>
-        <fieldset class="field"><legend>Terms · Ord</legend>
-          <label class="choice"><input type="radio" name="terms" value="words" checked> words</label>
-          <label class="choice"><input type="radio" name="terms" value="bigrams"> bigrams</label>
-          <label class="choice"><input type="radio" name="terms" value="trigrams"> trigrams</label>
-          <label class="choice"><input type="radio" name="terms" value="all"> words, bigrams and trigrams</label>
-        </fieldset>
         <fieldset class="field"><legend>Ordering of tags</legend>
           <label class="choice"><input type="radio" name="order" value="frequency" checked> by frequency</label>
           <label class="choice"><input type="radio" name="order" value="term"> by term name</label>
@@ -140,7 +134,6 @@
       <button type="button" role="tab" data-view="tag" aria-selected="true">Tag cloud</button>
       <button type="button" role="tab" data-view="word" aria-selected="false">Word cloud</button>
       <button type="button" role="tab" data-view="table" aria-selected="false">Frequency table</button>
-      <button type="button" role="tab" id="plotTab" data-view="plot" aria-selected="false" hidden>Comparison plot</button>
     </div>
     <p id="note" class="note" hidden></p>
     <div id="view" class="view" aria-live="polite"></div>
@@ -154,13 +147,12 @@
       “low-quality”). Words shorter than the minimum number of characters, or occurring less often than the minimum
       frequency, are left out. With <em>remove</em>, common function words (“the”, “and”, “og”, “och”…) are dropped
       using a list for the chosen language. English and Danish are listed first, together with the other large languages
-      and the Nordic languages. <strong>Bigrams</strong> and <strong>trigrams</strong> count two-word and three-word
-      phrases. Stopwords are taken out before the phrases are built, so “of the” does not become a phrase.</p>
+      and the Nordic languages. A two-word or three-word phrase is added beside its words only when the words
+      mostly occur inside that phrase, such as “artificial intelligence”. A pair that is only part of a longer
+      certain phrase is left out. Stopwords are removed before phrases are built, so “of the” does not appear.</p>
     <p><strong>Compare two texts</strong> draws every word from both in the same cloud. The size is the combined count.
       The colour is which text uses the word more often <em>for its length</em>, so a long report does not drown a short one.
-      Blue is the first text, orange the second, and grey means both use the word about equally. Lighter shades are a milder lean.
-      The <strong>comparison plot</strong> puts each word in a coordinate system: across is its share of the first text, up is its share of the second.
-      The dotted line from the corner with no mentions to the upper right is equal share.</p>
+      Blue is the first text, orange the second, and grey means both use the word about equally. Lighter shades are a milder lean.</p>
     <p>The <strong>tag cloud</strong> lists the words like a text, in the chosen order. The <strong>word cloud</strong>
       packs the most frequent words around the centre; the same text and options always give the same cloud.
       Font size grows with the square root of the frequency, so one dominant word doesn't shrink the rest.
