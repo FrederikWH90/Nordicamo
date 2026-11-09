@@ -16,7 +16,8 @@ const LISTS = {
     nu over da fra du ud sin dem os op man hans hvor eller hvad skal selv her alle vil blev kunne ind når være dog noget
     ville jo deres efter ned skulle denne end dette mit også under have dig anden hende mine alt meget sit sine vor mod
     disse hvis din nogle hos blive mange ad bliver hendes været thi jer sådan kan sagde siger får fik bare mere mest
-    hele helt lige blandt flere første andre andet både uden ved`,
+    hele helt lige blandt flere første andre andet både uden ved så ja nej altså derfor fordi mens før igen altid
+    aldrig blevet haft gjort går gik kom kommer omkring mellem gennem imod ifølge samt blot kun siden allerede stadig`,
   swedish: `och det att i en jag hon som han på den med var sig för så till är men ett om hade de av icke mig du henne då
     sin nu har inte hans honom skulle hennes där min man ej vid kunde något från ut när efter upp vi dem vara vad över än
     dig kan sina här ha mot alla under någon eller allt mycket sedan ju denna själv detta åt utan varit hur ingen mitt ni
@@ -59,14 +60,16 @@ const LISTS = {
 };
 
 export const STOPWORD_LANGUAGES = {
-  english: "English",
-  danish: "Danish",
-  swedish: "Swedish",
-  norwegian: "Norwegian",
-  finnish: "Finnish",
-  german: "German",
-  all: "All of these",
+  danish: "Dansk",
+  english: "Engelsk",
+  swedish: "Svensk",
+  norwegian: "Norsk",
+  finnish: "Finsk",
+  german: "Tysk",
+  all: "Alle disse",
 };
+
+export const DEFAULT_STOPWORD_LANGUAGE = "danish";
 
 const SETS = Object.fromEntries(
   Object.entries(LISTS).map(([lang, words]) => [lang, new Set(words.replace(/"/g, "").split(/\s+/).filter(Boolean))]),

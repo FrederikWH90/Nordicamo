@@ -2,7 +2,7 @@
 // Nothing is sent anywhere; all processing happens in this browser tab.
 
 import { COMPARE_COLORS, LIMITS, clip, compareWords, countWords, fontScale, orderTags, summarize, tokenize } from "./core.js";
-import { STOPWORD_LANGUAGES, stopwordSet } from "./stopwords.js";
+import { DEFAULT_STOPWORD_LANGUAGE, STOPWORD_LANGUAGES, stopwordSet } from "./stopwords.js";
 import { estimateWidth, tagCloudLayout, wordCloudLayout } from "./layout.js";
 import { CLOUD_FONT, binaryStringToBytes, composeDocument, toDelimited, toJSON, toPDF, toSVG } from "./export.js";
 import { COMPARE_A, COMPARE_B, EXAMPLE_TEXT } from "./example.js";
@@ -42,6 +42,7 @@ function measure(word, size) {
 for (const [value, label] of Object.entries(STOPWORD_LANGUAGES)) {
   els.stopLang.add(new Option(label, value));
 }
+els.stopLang.value = DEFAULT_STOPWORD_LANGUAGE;
 
 function comparing() {
   return radio("mode") === "compare";

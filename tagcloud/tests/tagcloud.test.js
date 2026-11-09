@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { COMPARE_COLORS, clip, compareWords, countWords, fontScale, leanSide, orderTags, summarize, tokenize } from "../js/core.js";
 import { estimateWidth, fitToFrame, tagCloudLayout, wordCloudLayout } from "../js/layout.js";
 import { composeDocument, toDelimited, toJSON, toPDF, toSVG, winAnsi } from "../js/export.js";
-import { stopwordSet } from "../js/stopwords.js";
+import { DEFAULT_STOPWORD_LANGUAGE, STOPWORD_LANGUAGES, stopwordSet } from "../js/stopwords.js";
 
 const SAMPLE = `Coral Hart has published more than 370 books since February 2025 using artificial intelligence.
 "Grifter", "villain" -- insults abound on social media to describe the author. Coral Hart said the AI books
@@ -39,6 +39,11 @@ test("stopword removal", () => {
   for (const lang of ["danish", "swedish", "norwegian", "finnish", "german"]) assert.ok(stopwordSet(lang).size > 50, lang);
   assert.ok(stopwordSet("all").has("og") && stopwordSet("all").has("the"));
   assert.ok(stopwordSet("unknown").has("the"), "falls back to English");
+  assert.equal(DEFAULT_STOPWORD_LANGUAGE, "danish");
+  assert.equal(STOPWORD_LANGUAGES.danish, "Dansk");
+  for (const word of ["og", "ikke", "at", "så", "blevet", "fordi"]) {
+    assert.ok(stopwordSet("danish").has(word), word);
+  }
 });
 
 test("ordering by frequency, by term and unordered (reading order)", () => {
