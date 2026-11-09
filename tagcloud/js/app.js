@@ -3,8 +3,8 @@
 
 import { COMPARE_COLORS, LIMITS, clip, compareWords, countWords, fontScale, orderTags, summarize, tokenize } from "./core.js";
 import { DEFAULT_STOPWORD_LANGUAGE, STOPWORD_LANGUAGES, stopwordSet } from "./stopwords.js";
-import { estimateWidth, tagCloudLayout, wordCloudLayout } from "./layout.js";
-import { CLOUD_FONT, binaryStringToBytes, composeDocument, toDelimited, toJSON, toPDF, toSVG } from "./export.js";
+import { comparisonPlot, estimateWidth, tagCloudLayout, wordCloudLayout } from "./layout.js";
+import { CLOUD_FONT, binaryStringToBytes, composeDocument, plotDocument, toDelimited, toJSON, toPDF, toSVG } from "./export.js";
 import { COMPARE_A, COMPARE_B, EXAMPLE_TEXT } from "./example.js";
 
 const $ = (id) => document.getElementById(id);
@@ -16,7 +16,7 @@ const els = {
   paletteField: $("paletteField"), compareColorNote: $("compareColorNote"), legend: $("legend"),
   minChars: $("minChars"), minFreq: $("minFreq"), stopLang: $("stopLang"), maxWords: $("maxWords"),
   method: $("method"), query: $("query"), title: $("title"), credit: $("credit"),
-  results: $("results"), summary: $("summary"), note: $("note"), view: $("view"),
+  results: $("results"), summary: $("summary"), note: $("note"), view: $("view"), plotTab: $("plotTab"),
   outputBtn: $("outputBtn"), outputMenu: $("outputMenu"),
 };
 const radio = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
@@ -76,8 +76,13 @@ function syncMode() {
   const a = sideName("a");
   const b = sideName("b");
   els.orderBalanceLabel.textContent = `${a} → shared → ${b}`;
+  els.plotTab.hidden = !on;
   if (!on && radio("order") === "balance") {
     document.querySelector('input[name="order"][value="frequency"]').checked = true;
+  }
+  if (!on && state.view === "plot") {
+    state.view = "tag";
+    document.querySelectorAll('[role="tab"]').forEach((t) => t.setAttribute("aria-selected", String(t.dataset.view === "tag")));
   }
   updateCount();
 }
@@ -132,6 +137,11 @@ function buildDocument(opts, view = state.view, { withLegend = false } = {}) {
     title: opts.title, method: opts.method, query: opts.query, credit: opts.credit ? creditLine() : "",
     legend: withLegend && state.compare ? legendItems() : [],
   };
+  if (view === "plot" && state.compare) {
+    const plot = comparisonPlot(tags, { width: CLOUD_WIDTH, height: 640, marginTop: opts.title ? 52 : 36 });
+    const doc = plotDocument(plot, { title: opts.title, nameA: state.compare.a, nameB: state.compare.b, color: paint(tags, opts) });
+    return { doc, shown: plot.points.length, skipped: 0, capped: 0 };
+  }
   if (view === "word") {
     const top = orderTags(tags, "frequency").slice(0, opts.maxWords);
     const size = fontScale(top, 12, 64);
@@ -258,6 +268,7 @@ function run() {
   }
   state.last = buildDocument(opts);
   const notes = [];
+  if (state.view === "plot") notes.push("The dotted line runs from no mentions to equal share. A word only in the first text sits on the bottom axis; a word only in the second sits on the left axis. Above the line means more of the second text; below it, more of the first.");
   if (state.last.capped) notes.push(`The word cloud shows the ${opts.maxWords} most frequent words; ${state.last.capped} less frequent words are in the table and downloads.`);
   if (state.last.skipped) notes.push(`${state.last.skipped} words did not fit and were left out of the picture.`);
   if (notes.length) { els.note.textContent = notes.join(" "); els.note.hidden = false; }
@@ -273,7 +284,7 @@ function run() {
 function fileStem(kind) {
   const title = readOptions().title || "tagcloud";
   const slug = title.toLowerCase().normalize("NFKD").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "") || "tagcloud";
-  const suffix = ["csv", "tsv", "json"].includes(kind) ? "frequencies" : state.view === "word" ? "wordcloud" : "tagcloud";
+  const suffix = ["csv", "tsv", "json"].includes(kind) ? "frequencies" : state.view === "plot" ? "comparison" : state.view === "word" ? "wordcloud" : "tagcloud";
   return `${slug}-${suffix}`;
 }
 
@@ -301,7 +312,8 @@ async function exportAs(kind) {
   if (kind === "json") return download(new Blob([toJSON(ordered, meta)], { type: "application/json" }), `${fileStem(kind)}.json`);
 
   // Image formats export the selected cloud; from the table view, the tag cloud.
-  const { doc } = buildDocument(opts, state.view === "word" ? "word" : "tag", { withLegend: true });
+  const exportView = state.view === "word" || state.view === "plot" ? state.view : "tag";
+  const { doc } = buildDocument(opts, exportView, { withLegend: true });
   const svg = toSVG(doc);
   if (kind === "svg") return download(new Blob([svg], { type: "image/svg+xml" }), `${fileStem(kind)}.svg`);
   if (kind === "pdf") return download(new Blob([binaryStringToBytes(toPDF(doc, measure))], { type: "application/pdf" }), `${fileStem(kind)}.pdf`);

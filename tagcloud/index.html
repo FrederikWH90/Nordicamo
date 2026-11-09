@@ -134,6 +134,7 @@
       <button type="button" role="tab" data-view="tag" aria-selected="true">Tag cloud</button>
       <button type="button" role="tab" data-view="word" aria-selected="false">Word cloud</button>
       <button type="button" role="tab" data-view="table" aria-selected="false">Frequency table</button>
+      <button type="button" role="tab" id="plotTab" data-view="plot" aria-selected="false" hidden>Comparison plot</button>
     </div>
     <p id="note" class="note" hidden></p>
     <div id="view" class="view" aria-live="polite"></div>
@@ -149,7 +150,9 @@
       using a list for the chosen language.</p>
     <p><strong>Compare two texts</strong> draws every word from both in the same cloud. The size is the combined count.
       The colour is which text uses the word more often <em>for its length</em>, so a long report does not drown a short one.
-      Blue is the first text, orange the second, and grey means both use the word about equally. Lighter shades are a milder lean.</p>
+      Blue is the first text, orange the second, and grey means both use the word about equally. Lighter shades are a milder lean.
+      The <strong>comparison plot</strong> puts each word in a coordinate system: across is its share of the first text, up is its share of the second.
+      The dotted line from the corner with no mentions to the upper right is equal share.</p>
     <p>The <strong>tag cloud</strong> lists the words like a text, in the chosen order. The <strong>word cloud</strong>
       packs the most frequent words around the centre; the same text and options always give the same cloud.
       Font size grows with the square root of the frequency, so one dominant word doesn't shrink the rest.

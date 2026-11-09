@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { COMPARE_COLORS, clip, compareWords, countWords, fontScale, leanSide, orderTags, summarize, tokenize } from "../js/core.js";
-import { estimateWidth, fitToFrame, tagCloudLayout, wordCloudLayout } from "../js/layout.js";
-import { composeDocument, toDelimited, toJSON, toPDF, toSVG, winAnsi } from "../js/export.js";
+import { comparisonPlot, estimateWidth, fitToFrame, tagCloudLayout, wordCloudLayout } from "../js/layout.js";
+import { composeDocument, plotDocument, toDelimited, toJSON, toPDF, toSVG, winAnsi } from "../js/export.js";
 import { DEFAULT_STOPWORD_LANGUAGE, STOPWORD_LANGUAGES, stopwordSet } from "../js/stopwords.js";
 
 const SAMPLE = `Coral Hart has published more than 370 books since February 2025 using artificial intelligence.
@@ -88,6 +88,27 @@ test("comparison minimum frequency uses the combined count", () => {
   assert.deepEqual(tags.map((t) => t.word), ["alpha"]);
   const dropped = compareWords("alpha alpha", "beta", { minChars: 3, minFrequency: 3 });
   assert.equal(dropped.tags.length, 0);
+});
+
+test("comparison plot puts equal share on the diagonal and unique words on the axes", () => {
+  const tags = [
+    { word: "onlya", rateA: 0.2, rateB: 0, count: 4, countA: 4, countB: 0, side: "a" },
+    { word: "onlyb", rateA: 0, rateB: 0.2, count: 4, countA: 0, countB: 4, side: "b" },
+    { word: "both", rateA: 0.1, rateB: 0.1, count: 4, countA: 2, countB: 2, side: "shared" },
+    { word: "peak", rateA: 0.4, rateB: 0.1, count: 8, countA: 6, countB: 2, side: "a" },
+  ];
+  const plot = comparisonPlot(tags, { width: 500, height: 500, marginLeft: 40, marginRight: 40, marginTop: 40, marginBottom: 40 });
+  const at = Object.fromEntries(plot.points.map((p) => [p.word, p]));
+  assert.equal(at.onlya.y, plot.origin.y);
+  assert.equal(at.onlyb.x, plot.origin.x);
+  assert.ok(Math.abs((at.both.x - plot.origin.x) - (plot.origin.y - at.both.y)) < 0.01, "equal share lies on the diagonal");
+  assert.equal(at.peak.x, plot.xEnd.x, "the highest share reaches the end of the axis");
+  assert.ok(at.peak.y > plot.yEnd.y && at.peak.y < plot.origin.y);
+  assert.deepEqual(plot.diagonal, { x1: plot.origin.x, y1: plot.origin.y, x2: plot.xEnd.x, y2: plot.yEnd.y });
+  const svg = toSVG(plotDocument(plot, { nameA: "North", nameB: "South", color: () => "#0C4A8A" }));
+  assert.ok(svg.includes('stroke-dasharray="2 5"'));
+  assert.ok(svg.includes("equal share") && svg.includes("North →") && svg.includes("↑ South"));
+  assert.ok(svg.includes("<circle"));
 });
 
 test("font scale is monotonic and bounded", () => {

@@ -90,7 +90,7 @@ export function compareWords(textA, textB, { minChars = 3, minFrequency = 3, sto
     const rateB = countB / Math.max(right.total, 1);
     const lean = rateA + rateB === 0 ? 0 : (rateA - rateB) / (rateA + rateB);
     const order = left.order.has(word) ? left.order.get(word) : left.total + (right.order.get(word) ?? 0);
-    tags.push({ word, count, countA, countB, lean, side: leanSide(lean), order });
+    tags.push({ word, count, countA, countB, rateA, rateB, lean, side: leanSide(lean), order });
   }
   return { tags, lengthA: left.total, lengthB: right.total };
 }

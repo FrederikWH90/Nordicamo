@@ -92,9 +92,52 @@ export function composeDocument(items, { width, cloudHeight, title = "", method 
   return { width, height, texts, shapes };
 }
 
+function shapeSVG(s) {
+  if (s.type === "line") {
+    const dash = s.dash ? ` stroke-dasharray="${s.dash}"` : "";
+    return `<line x1="${s.x1.toFixed(1)}" y1="${s.y1.toFixed(1)}" x2="${s.x2.toFixed(1)}" y2="${s.y2.toFixed(1)}" stroke="${s.color}" stroke-width="1.5"${dash}/>`;
+  }
+  if (s.type === "circle") {
+    const title = s.tip ? `<title>${escapeXml(s.tip)}</title>` : "";
+    return `<g>${title}<circle cx="${s.cx.toFixed(1)}" cy="${s.cy.toFixed(1)}" r="${s.r}" fill="${s.color}"/></g>`;
+  }
+  return `<rect x="${s.x.toFixed(1)}" y="${s.y.toFixed(1)}" width="${s.w}" height="${s.h}" rx="2" fill="${s.color}"/>`;
+}
+
+export function plotDocument(plot, { title = "", nameA = "Text A", nameB = "Text B", color }) {
+  const shapes = [
+    { type: "line", x1: plot.origin.x, y1: plot.origin.y, x2: plot.xEnd.x, y2: plot.xEnd.y, color: "#b7c0ca" },
+    { type: "line", x1: plot.origin.x, y1: plot.origin.y, x2: plot.yEnd.x, y2: plot.yEnd.y, color: "#b7c0ca" },
+    { type: "line", x1: plot.diagonal.x1, y1: plot.diagonal.y1, x2: plot.diagonal.x2, y2: plot.diagonal.y2, color: "#5c6770", dash: "2 5" },
+  ];
+  for (const point of plot.points) {
+    shapes.push({
+      type: "circle", cx: point.x, cy: point.y, r: 4.5, color: color(point),
+      tip: point.tip || `${point.word}: ${point.countA ?? 0} and ${point.countB ?? 0}`,
+    });
+  }
+  const texts = [];
+  if (title) texts.push({ text: title, x: plot.width / 2, y: 22, size: 18, bold: true, anchor: "middle", color: "#111111" });
+  texts.push({ text: `${nameA} →`, x: plot.xEnd.x, y: plot.origin.y + 28, size: 13, anchor: "end", color: "#0C4A8A" });
+  texts.push({ text: `↑ ${nameB}`, x: plot.origin.x + 8, y: Math.max(16, plot.yEnd.y - 8), size: 13, anchor: "start", color: "#C25100" });
+  texts.push({
+    text: "equal share",
+    x: plot.diagonal.x2 - 86,
+    y: plot.diagonal.y2 + 18,
+    size: 11, anchor: "start", color: "#5c6770",
+  });
+  for (const point of plot.points) {
+    if (!point.labeled) continue;
+    texts.push({
+      text: point.word, x: point.labelX, y: point.labelY, size: 12, anchor: "start",
+      color: color(point), tip: point.tip, count: point.count,
+    });
+  }
+  return { width: plot.width, height: plot.height, texts, shapes };
+}
+
 export function toSVG(doc) {
-  const shapes = (doc.shapes || []).map((s) =>
-    `<rect x="${s.x.toFixed(1)}" y="${s.y.toFixed(1)}" width="${s.w}" height="${s.h}" rx="2" fill="${s.color}"/>`);
+  const shapes = (doc.shapes || []).map(shapeSVG);
   const parts = doc.texts.map((t) => {
     const baseline = t.anchor === "middle" && t.count !== undefined ? t.size * 0.35 : 0;
     const weight = t.bold ? ' font-weight="700"' : "";
@@ -147,7 +190,14 @@ export function toPDF(doc, measure) {
   const H = doc.height;
   const ops = ["1 1 1 rg", `0 0 ${doc.width} ${H} re f`];
   for (const s of doc.shapes || []) {
-    ops.push(`${rgb(s.color)} rg ${s.x.toFixed(2)} ${(H - s.y - s.h).toFixed(2)} ${s.w} ${s.h} re f`);
+    if (s.type === "line") {
+      const dash = s.dash ? "[2 4] 0 d" : "[] 0 d";
+      ops.push(`${rgb(s.color)} RG ${dash} 1.25 w ${s.x1.toFixed(2)} ${(H - s.y1).toFixed(2)} m ${s.x2.toFixed(2)} ${(H - s.y2).toFixed(2)} l S [] 0 d`);
+    } else if (s.type === "circle") {
+      ops.push(`${rgb(s.color)} rg ${s.cx.toFixed(2)} ${(H - s.cy).toFixed(2)} ${s.r} 0 360 arc f`);
+    } else {
+      ops.push(`${rgb(s.color)} rg ${s.x.toFixed(2)} ${(H - s.y - s.h).toFixed(2)} ${s.w} ${s.h} re f`);
+    }
   }
   for (const t of doc.texts) {
     const font = t.bold ? "/F2" : "/F1";
