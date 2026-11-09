@@ -97,6 +97,7 @@ function readOptions() {
     minFrequency: int(els.minFreq, 1, 3),
     stop: radio("stop"),
     stopLang: els.stopLang.value,
+    terms: radio("terms"),
     ordering: radio("order"),
     rotation: radio("rotation"),
     palette: radio("palette"),
@@ -107,6 +108,13 @@ function readOptions() {
     credit: els.credit.checked,
   };
 }
+
+const TERM_LABEL = {
+  words: "words",
+  bigrams: "bigrams",
+  trigrams: "trigrams",
+  all: "words, bigrams and trigrams",
+};
 
 function colorFor(tags, palette) {
   const shades = PALETTES[palette] ?? PALETTES.blue;
@@ -226,7 +234,7 @@ function run() {
   }
   if (on) {
     const compared = compareWords(els.textA.value, els.textB.value, {
-      minChars: opts.minChars, minFrequency: opts.minFrequency, stopwords,
+      minChars: opts.minChars, minFrequency: opts.minFrequency, stopwords, terms: opts.terms,
     });
     const a = sideName("a");
     const b = sideName("b");
@@ -234,17 +242,17 @@ function run() {
     state.tags = compared.tags.map((t) => ({ ...t, tip: `${t.word}: ${t.countA} in ${a}, ${t.countB} in ${b}` }));
     els.summary.textContent =
       `${a}: ${compared.lengthA.toLocaleString("en")} words. ${b}: ${compared.lengthB.toLocaleString("en")} words. ` +
-      `Showing ${compared.tags.length.toLocaleString("en")} words with at least ${opts.minChars} characters that occur at least ` +
+      `Showing ${compared.tags.length.toLocaleString("en")} ${TERM_LABEL[opts.terms] || "words"} with at least ${opts.minChars} characters that occur at least ` +
       `${opts.minFrequency} ${opts.minFrequency === 1 ? "time" : "times"} in the two texts together. ` +
       `Size is the combined count. Colour is which text uses the word more, relative to its length.` +
       (stopwords ? ` ${STOPWORD_LANGUAGES[opts.stopLang]} stopwords removed.` : "");
   } else {
     state.compare = null;
-    state.tags = countWords(text, { minChars: opts.minChars, minFrequency: opts.minFrequency, stopwords });
+    state.tags = countWords(text, { minChars: opts.minChars, minFrequency: opts.minFrequency, stopwords, terms: opts.terms });
     const s = summarize(text, state.tags);
     els.summary.textContent =
       `${s.totalWords.toLocaleString("en")} words in total, ${s.uniqueWords.toLocaleString("en")} different. ` +
-      `Showing ${s.shownTags.toLocaleString("en")} words with at least ${opts.minChars} characters that occur at least ` +
+      `Showing ${s.shownTags.toLocaleString("en")} ${TERM_LABEL[opts.terms] || "words"} with at least ${opts.minChars} characters that occur at least ` +
       `${opts.minFrequency} ${opts.minFrequency === 1 ? "time" : "times"}` +
       (stopwords ? `, ${STOPWORD_LANGUAGES[opts.stopLang]} stopwords removed.` : ".");
   }

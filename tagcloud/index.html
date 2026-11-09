@@ -73,6 +73,12 @@
           <label class="choice"><input type="radio" name="stop" value="remove"> remove · fjern</label>
           <select id="stopLang" aria-label="Stopword language, stopordssprog" disabled></select>
         </fieldset>
+        <fieldset class="field"><legend>Terms · Ord</legend>
+          <label class="choice"><input type="radio" name="terms" value="words" checked> words</label>
+          <label class="choice"><input type="radio" name="terms" value="bigrams"> bigrams</label>
+          <label class="choice"><input type="radio" name="terms" value="trigrams"> trigrams</label>
+          <label class="choice"><input type="radio" name="terms" value="all"> words, bigrams and trigrams</label>
+        </fieldset>
         <fieldset class="field"><legend>Ordering of tags</legend>
           <label class="choice"><input type="radio" name="order" value="frequency" checked> by frequency</label>
           <label class="choice"><input type="radio" name="order" value="term"> by term name</label>
@@ -147,7 +153,9 @@
       to their frequency. Words are lower-cased; apostrophes and hyphens inside a word are kept (“don't”,
       “low-quality”). Words shorter than the minimum number of characters, or occurring less often than the minimum
       frequency, are left out. With <em>remove</em>, common function words (“the”, “and”, “og”, “och”…) are dropped
-      using a list for the chosen language.</p>
+      using a list for the chosen language. English and Danish are listed first, together with the other large languages
+      and the Nordic languages. <strong>Bigrams</strong> and <strong>trigrams</strong> count two-word and three-word
+      phrases. Stopwords are taken out before the phrases are built, so “of the” does not become a phrase.</p>
     <p><strong>Compare two texts</strong> draws every word from both in the same cloud. The size is the combined count.
       The colour is which text uses the word more often <em>for its length</em>, so a long report does not drown a short one.
       Blue is the first text, orange the second, and grey means both use the word about equally. Lighter shades are a milder lean.

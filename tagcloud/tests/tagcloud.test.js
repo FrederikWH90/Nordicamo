@@ -36,14 +36,31 @@ test("stopword removal", () => {
   assert.ok(keep.includes("the") && keep.includes("has"));
   assert.ok(!removed.includes("the") && !removed.includes("has"));
   assert.ok(removed.includes("hart"));
-  for (const lang of ["danish", "swedish", "norwegian", "finnish", "german"]) assert.ok(stopwordSet(lang).size > 50, lang);
+  for (const lang of ["danish", "swedish", "norwegian", "finnish", "german", "spanish", "french", "portuguese", "italian", "dutch", "russian", "arabic", "hindi", "indonesian", "polish"]) {
+    assert.ok(stopwordSet(lang).size > 40, `${lang} ${stopwordSet(lang).size}`);
+  }
+  assert.ok(stopwordSet("spanish").has("de") && stopwordSet("french").has("le") && stopwordSet("arabic").has("في"));
+  assert.ok(stopwordSet("english").has("the") && stopwordSet("danish").has("og"));
+  assert.equal(Object.keys(STOPWORD_LANGUAGES).filter((k) => k !== "all").length >= 10, true);
   assert.ok(stopwordSet("all").has("og") && stopwordSet("all").has("the"));
   assert.ok(stopwordSet("unknown").has("the"), "falls back to English");
   assert.equal(DEFAULT_STOPWORD_LANGUAGE, "danish");
-  assert.equal(STOPWORD_LANGUAGES.danish, "Dansk");
+  assert.equal(STOPWORD_LANGUAGES.danish, "Dansk · Danish");
+  assert.equal(STOPWORD_LANGUAGES.english, "Engelsk · English");
   for (const word of ["og", "ikke", "at", "så", "blevet", "fordi"]) {
     assert.ok(stopwordSet("danish").has(word), word);
   }
+});
+
+test("bigrams and trigrams skip stopwords before joining words", () => {
+  const text = "the artificial intelligence of the artificial intelligence model";
+  const bigrams = countWords(text, { minChars: 3, minFrequency: 2, terms: "bigrams", stopwords: stopwordSet("english") });
+  assert.deepEqual(bigrams.map((t) => t.word), ["artificial intelligence"]);
+  const trigrams = countWords("alpha beta gamma alpha beta gamma", { minChars: 1, minFrequency: 2, terms: "trigrams" });
+  assert.equal(trigrams[0].word, "alpha beta gamma");
+  assert.equal(trigrams[0].count, 2);
+  const all = countWords("alpha beta alpha beta", { minChars: 1, minFrequency: 1, terms: "all" }).map((t) => t.word);
+  assert.ok(all.includes("alpha") && all.includes("alpha beta") && all.includes("alpha beta alpha"));
 });
 
 test("ordering by frequency, by term and unordered (reading order)", () => {

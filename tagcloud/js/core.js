@@ -11,17 +11,45 @@ export function tokenize(text) {
   );
 }
 
-export function countWords(text, { minChars = 3, minFrequency = 3, stopwords = null } = {}) {
-  const counts = new Map();
-  for (const word of tokenize(text)) {
+function contentTokens(text, { minChars = 3, stopwords = null } = {}) {
+  const tokens = tokenize(text);
+  const kept = [];
+  for (const word of tokens) {
     if ([...word].length < minChars) continue;
     if (stopwords && stopwords.has(word)) continue;
-    counts.set(word, (counts.get(word) ?? 0) + 1);
+    kept.push(word);
   }
-  const firstSeen = new Map([...counts.keys()].map((w, i) => [w, i]));
+  return { tokens, kept };
+}
+
+function termUnits(kept, terms) {
+  const phrases = (n) => {
+    const out = [];
+    for (let i = 0; i <= kept.length - n; i++) out.push(kept.slice(i, i + n).join(" "));
+    return out;
+  };
+  if (terms === "bigrams") return phrases(2);
+  if (terms === "trigrams") return phrases(3);
+  if (terms === "all") return [...kept, ...phrases(2), ...phrases(3)];
+  return kept;
+}
+
+function tally(text, { minChars = 3, stopwords = null, terms = "words" } = {}) {
+  const { tokens, kept } = contentTokens(text, { minChars, stopwords });
+  const counts = new Map();
+  const order = new Map();
+  termUnits(kept, terms).forEach((unit, i) => {
+    if (!counts.has(unit)) order.set(unit, i);
+    counts.set(unit, (counts.get(unit) ?? 0) + 1);
+  });
+  return { counts, order, total: tokens.length };
+}
+
+export function countWords(text, { minChars = 3, minFrequency = 3, stopwords = null, terms = "words" } = {}) {
+  const { counts, order } = tally(text, { minChars, stopwords, terms });
   return [...counts]
     .filter(([, n]) => n >= minFrequency)
-    .map(([word, count]) => ({ word, count, order: firstSeen.get(word) }));
+    .map(([word, count]) => ({ word, count, order: order.get(word) }));
 }
 
 // "frequency": most frequent first (ties alphabetical); "term": A–Z;
@@ -55,21 +83,6 @@ export function leanSide(lean) {
   return "shared";
 }
 
-function tally(text, { minChars = 3, stopwords = null } = {}) {
-  const counts = new Map();
-  const order = new Map();
-  const tokens = tokenize(text);
-  let kept = 0;
-  for (const word of tokens) {
-    if ([...word].length < minChars) continue;
-    if (stopwords && stopwords.has(word)) continue;
-    if (!counts.has(word)) order.set(word, kept);
-    counts.set(word, (counts.get(word) ?? 0) + 1);
-    kept += 1;
-  }
-  return { counts, order, total: tokens.length };
-}
-
 /**
  * Words from two texts in one list.
  * `count` is the combined frequency (this sets the font size).
@@ -77,9 +90,9 @@ function tally(text, { minChars = 3, stopwords = null } = {}) {
  * from 1 (only the first text) to -1 (only the second). A long text therefore
  * does not drown a short one just by having more raw mentions.
  */
-export function compareWords(textA, textB, { minChars = 3, minFrequency = 3, stopwords = null } = {}) {
-  const left = tally(textA, { minChars, stopwords });
-  const right = tally(textB, { minChars, stopwords });
+export function compareWords(textA, textB, { minChars = 3, minFrequency = 3, stopwords = null, terms = "words" } = {}) {
+  const left = tally(textA, { minChars, stopwords, terms });
+  const right = tally(textB, { minChars, stopwords, terms });
   const tags = [];
   for (const word of new Set([...left.counts.keys(), ...right.counts.keys()])) {
     const countA = left.counts.get(word) ?? 0;

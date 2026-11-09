@@ -57,16 +57,65 @@ const LISTS = {
     solche solchem solchen solcher solches soll sollte sondern sonst über um und uns unsere unserem unseren unser
     unseres unter viel vom von vor während war waren warst was weg weil weiter welche welchem welchen welcher welches
     wenn werde werden wie wieder will wir wird wirst wo wollen wollte würde würden zu zum zur zwar zwischen`,
+  spanish: `de la que el en y a los del se las por un para con no una su al lo como más pero sus le ya o fue este ha sí
+    porque esta son entre cuando muy sin sobre también me hasta hay donde quien desde todo nos durante todos uno les ni
+    contra otros ese eso ante ellos esto mí antes algunos qué unos yo otro otras otra tanto esa estos mucho quienes nada
+    muchos cual poco ella estar estas algunas algo nosotros mi mis tú te ti tu tus ella ellas vosotros os mío mía tuyo
+    suyo nuestro vuestro ser haber estar`,
+  french: `au aux avec ce ces dans de des du elle en et eux il je la le leur lui ma mais me même mes moi mon ne nos notre
+    nous on ou par pas pour qu que qui sa se ses son sur ta te tes toi ton tu un une vos votre vous y a ai as ont été être
+    suis es est sommes êtes sont était étaient sera serait avoir avait ont plus moins très aussi si ne pas ni ou car donc
+    dans chez vers sans sous entre pendant avant après tout tous toute toutes cette cet ça cela celui celle ceux dont où
+    quand comment pourquoi`,
+  portuguese: `de a o que e do da em um para é com não uma os no se na por mais as dos como mas foi ao ele das tem à seu
+    sua ou ser quando muito há nos já está eu também só pelo pela até isso ela entre era depois sem mesmo aos tem seus
+    quem nas me esse eles estão você tinha foram essa num nem suas meu às minha têm numa pelos elas havia seja qual
+    será nós tenho lhe deles essas esses pelas este fosse dele tu nós vos lhe`,
+  italian: `di a da in che e il lo la i le un una del della dei delle al allo alla ai agli nel nella nei nelle con per su tra
+    fra non si ma o come anche più questo questa questi queste quello quella quelli quelle io tu lui lei noi voi loro
+    mio mia miei mie tuo tua suoi sue nostro nostra è sono era erano essere stato stata stati state ha hanno aveva
+    avevano c'è ci ne gli se perché quando dove chi cosa quale`,
+  dutch: `de het een van en in is dat op te zijn voor met als aan er maar om dit niet die zo dan nog wel geen tot ook al was
+    bij uit naar over je jij wij we zij hij hun hen mijn zijn haar ons jullie deze daar hier waar wanneer waarom hoe wat
+    wie welke welk of want toch steeds altijd nooit iets niets alles iedereen iemand niemand kan moet mag zou hebben
+    had heeft werd worden wordt`,
+  russian: `и в во не что он на я с со как а то все она так его но да ты к у же вы за бы по только ее мне было вот от меня еще
+    нет о из ему теперь когда даже ну ли если уже или ни быть был него до вас уж вам ведь там потом себя ничего ей может
+    они тут где есть надо ней для мы тебя их чем была сам чтоб без будто чего раз тоже себе под будет тогда кто этот
+    потому этого какой совсем ним здесь этом один почти мой тем чтобы нее сейчас были куда зачем всех никогда сегодня
+    можно при наконец два об другой хоть после над больше тот через эти нас про всего них какая много три эту моя перед
+    иногда лучше чуть том нельзя такой им более всегда конечно всю между`,
+  arabic: `في من على إلى عن أن إن هذا هذه تلك ذلك ما لا لم لن قد كان كانت يكون تكون هو هي هم هن نحن أنت أنتم التي الذي الذين
+    و أو ثم بل لكن إذا إذ حيث كيف متى أين لماذا مع بين تحت فوق قبل بعد كل بعض غير سوى حتى عند لدى منذ خلال ضد دون أي
+    هناك هنا أيضا فقط ليس ليست ليسوا`,
+  hindi: `का के की में है हैं था थे थी को से पर ने यह वह और या कि जो तो भी नहीं ही एक लिए गया गई गए हो हम आप मैं तुम वे उनका
+    उनकी उसके इसकी इसके इन उन कोई कुछ सब जब तक अगर तो इसलिए क्योंकि यहाँ वहाँ अब फिर बहुत कम अधिक`,
+  indonesian: `yang dan di ke dari untuk pada adalah dengan ini itu atau sebagai juga tidak ada oleh akan antara sudah belum
+    lebih sangat dapat bisa harus kami kita saya anda mereka dia ia nya serta maupun telah sedang pun bagi bagi
+    kepada daripada tentang dalam atas bawah`,
+  polish: `i w z na do że się nie to jest jak o a po co za od dla ale czy jej mu ich tym ten tej tych już też tylko jeszcze
+    by był była było były będzie są być mnie mi mój moja moje nas nasz jego tu tam kiedy gdzie kto co jaki która które
+    który jeśli choć albo lub oraz przy pod nad przez między`,
 };
 
 export const STOPWORD_LANGUAGES = {
-  danish: "Dansk",
-  english: "Engelsk",
-  swedish: "Svensk",
-  norwegian: "Norsk",
-  finnish: "Finsk",
-  german: "Tysk",
-  all: "Alle disse",
+  danish: "Dansk · Danish",
+  english: "Engelsk · English",
+  spanish: "Spansk · Spanish",
+  french: "Fransk · French",
+  arabic: "Arabisk · Arabic",
+  portuguese: "Portugisisk · Portuguese",
+  russian: "Russisk · Russian",
+  german: "Tysk · German",
+  hindi: "Hindi",
+  indonesian: "Indonesisk · Indonesian",
+  italian: "Italiensk · Italian",
+  dutch: "Nederlandsk · Dutch",
+  polish: "Polsk · Polish",
+  swedish: "Svensk · Swedish",
+  norwegian: "Norsk · Norwegian",
+  finnish: "Finsk · Finnish",
+  all: "Alle disse · All of these",
 };
 
 export const DEFAULT_STOPWORD_LANGUAGE = "danish";
