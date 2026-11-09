@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Tag Cloud Generator · Nordicamo</title>
+<meta name="description" content="Paste a text, count its words and turn them into a tag cloud or word cloud. Runs entirely in your browser.">
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="https://nordicamo.org/"><span class="brand-mark">NORDICAMO</span><span class="brand-sub">Nordic Alternative Media Observatory</span></a>
+  <a class="back" href="https://nordicamo.org/">← nordicamo.org</a>
+</header>
+
+<main>
+  <h1>Tag Cloud Generator</h1>
+  <p class="lede">Paste a text, count its words and turn them into a tag cloud or a word cloud.
+    Your text is processed in your browser and never uploaded.</p>
+
+  <form id="form" novalidate>
+    <section class="panel">
+      <h2>Input</h2>
+      <label for="text" class="hint">Enter a text in the box below. All words will be counted; the output is a tag cloud.</label>
+      <textarea id="text" rows="12" spellcheck="false" placeholder="Paste or type a text…"></textarea>
+      <div class="row-between">
+        <span id="charcount" class="muted">0 words</span>
+        <span class="row-gap">
+          <button type="button" id="example" class="link-btn">Load example text</button>
+          <button type="button" id="clear" class="link-btn">Clear</button>
+        </span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Options</h2>
+      <div class="grid">
+        <label class="field"><span>Minimum number of characters</span>
+          <input id="minChars" type="number" min="1" max="50" value="3" inputmode="numeric"></label>
+        <label class="field"><span>Minimum frequency</span>
+          <input id="minFreq" type="number" min="1" max="100000" value="3" inputmode="numeric"></label>
+        <fieldset class="field"><legend>Stopword treatment</legend>
+          <label class="choice"><input type="radio" name="stop" value="keep" checked> keep</label>
+          <label class="choice"><input type="radio" name="stop" value="remove"> remove</label>
+          <select id="stopLang" aria-label="Stopword language" disabled></select>
+        </fieldset>
+        <fieldset class="field"><legend>Ordering of tags</legend>
+          <label class="choice"><input type="radio" name="order" value="frequency" checked> by frequency</label>
+          <label class="choice"><input type="radio" name="order" value="term"> by term name</label>
+          <label class="choice"><input type="radio" name="order" value="unordered"> unordered</label>
+        </fieldset>
+      </div>
+
+      <h3>Word cloud</h3>
+      <div class="grid">
+        <label class="field"><span>Maximum number of words</span>
+          <select id="maxWords"><option>50</option><option selected>100</option><option>150</option><option>250</option></select></label>
+        <fieldset class="field"><legend>Word direction</legend>
+          <label class="choice"><input type="radio" name="rotation" value="none" checked> horizontal</label>
+          <label class="choice"><input type="radio" name="rotation" value="some"> some vertical</label>
+        </fieldset>
+        <fieldset class="field"><legend>Colours</legend>
+          <label class="choice"><input type="radio" name="palette" value="blue" checked> blue shades</label>
+          <label class="choice"><input type="radio" name="palette" value="black"> black</label>
+        </fieldset>
+      </div>
+
+      <h3>Additional input for the SVG and PDF rendering</h3>
+      <div class="grid">
+        <label class="field"><span>Describe the method used in analysis <small>(max 55 characters)</small></span>
+          <input id="method" maxlength="55" placeholder="e.g. Word frequency, stopwords removed"></label>
+        <label class="field"><span>Which query produces the input? <small>(max 55 characters)</small></span>
+          <input id="query" maxlength="55" placeholder="e.g. AFP article, 3 Nov 2026"></label>
+        <label class="field"><span>Give the cloud a title <small>(max 45 characters)</small></span>
+          <input id="title" maxlength="45" placeholder="e.g. AI and publishing"></label>
+        <label class="choice credit"><input id="credit" type="checkbox" checked> Add a credit line (Nordicamo Tag Cloud Generator and date)</label>
+      </div>
+      <button type="submit" class="primary">Make cloud</button>
+      <span class="muted kbd">or press Ctrl/⌘ + Enter</span>
+    </section>
+  </form>
+
+  <section class="panel" id="results" hidden>
+    <div class="results-head">
+      <h2>Results</h2>
+      <div class="output">
+        <button type="button" id="outputBtn" aria-haspopup="true" aria-expanded="false">Output ▾</button>
+        <div id="outputMenu" class="menu" role="menu" hidden>
+          <span class="menu-label">This cloud as</span>
+          <button type="button" role="menuitem" data-out="svg">SVG (vector)</button>
+          <button type="button" role="menuitem" data-out="pdf">PDF (vector)</button>
+          <button type="button" role="menuitem" data-out="png">PNG (image)</button>
+          <span class="menu-label">Word frequencies as</span>
+          <button type="button" role="menuitem" data-out="csv">CSV</button>
+          <button type="button" role="menuitem" data-out="tsv">TSV (tab-separated)</button>
+          <button type="button" role="menuitem" data-out="json">JSON</button>
+        </div>
+      </div>
+    </div>
+    <p id="summary" class="muted"></p>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-view="tag" aria-selected="true">Tag cloud</button>
+      <button type="button" role="tab" data-view="word" aria-selected="false">Word cloud</button>
+      <button type="button" role="tab" data-view="table" aria-selected="false">Frequency table</button>
+    </div>
+    <p id="note" class="note" hidden></p>
+    <div id="view" class="view" aria-live="polite"></div>
+    <p class="muted small">Results are also available in other formats through the <strong>Output</strong> menu.</p>
+  </section>
+
+  <section class="panel intro">
+    <h2>Tag Cloud Generator, an introduction</h2>
+    <p>The generator splits a text into words, counts how often each word occurs and draws the words in proportion
+      to their frequency. Words are lower-cased; apostrophes and hyphens inside a word are kept (“don't”,
+      “low-quality”). Words shorter than the minimum number of characters, or occurring less often than the minimum
+      frequency, are left out. With <em>remove</em>, common function words (“the”, “and”, “og”, “och”…) are dropped
+      using a list for the chosen language.</p>
+    <p>The <strong>tag cloud</strong> lists the words like a text, in the chosen order. The <strong>word cloud</strong>
+      packs the most frequent words around the centre; the same text and options always give the same cloud.
+      Font size grows with the square root of the frequency, so one dominant word doesn't shrink the rest.
+      The frequency table and the CSV, TSV and JSON downloads give the exact counts.</p>
+  </section>
+</main>
+
+<footer class="footer">A tool from <a href="https://nordicamo.org/">Nordicamo</a>, part of the research project
+  <a href="https://ruc.dk/en/forskningsprojekt/alternative-media-and-ideological-counterpublics">AlterPublics</a>
+  at <a href="https://ruc.dk/en">Roskilde University</a>, hosted by the <a href="https://digitalmedialab.ruc.dk/">Digital Media Lab</a>.</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+:root {
+  --bg: #f4f7f6;
+  --card: #ffffff;
+  --border: #dce3eb;
+  --ink: #1f2933;
+  --muted: #5a6a7a;
+  --brick: #8c342f;
+  --navy: #173f5f;
+  --navy-dark: #0f314d;
+  --focus: #2a78d6;
+  --radius: 10px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+* { box-sizing: border-box; }
+body { margin: 0; line-height: 1.55; background: var(--bg); }
+a { color: var(--navy); }
+
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 10px 24px; background: rgba(248, 251, 248, 0.96);
+  border-bottom: 1px solid var(--border); backdrop-filter: blur(6px);
+}
+.brand { display: flex; flex-direction: column; text-decoration: none; line-height: 1.15; }
+.brand-mark { color: var(--brick); font-weight: 800; letter-spacing: .12em; font-size: .95rem; }
+.brand-sub { color: var(--muted); font-size: .72rem; letter-spacing: .04em; }
+.back { font-size: .88rem; font-weight: 600; text-decoration: none; }
+
+main { max-width: 980px; margin: 0 auto; padding: 28px 20px 40px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 6px; }
+h2 { font-size: 1.2rem; margin: 0 0 10px; }
+h3 { font-size: .95rem; margin: 22px 0 10px; color: var(--ink); }
+.lede { color: var(--muted); font-size: 1.05rem; margin: 0 0 20px; max-width: 46rem; }
+.muted { color: var(--muted); font-size: .88rem; }
+.small { font-size: .8rem; margin: 12px 0 0; }
+
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin: 0 0 16px; }
+.hint { display: block; color: var(--muted); font-size: .92rem; margin-bottom: 8px; }
+textarea {
+  width: 100%; min-height: 220px; resize: vertical; padding: 12px; font: inherit; font-size: .95rem;
+  border: 1px solid var(--border); border-radius: 8px; background: #fbfcfd; color: var(--ink);
+}
+textarea:focus, input:focus, select:focus, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
+.row-gap { display: inline-flex; gap: 14px; }
+.link-btn { background: none; border: 0; padding: 4px 0; color: var(--navy); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px 18px; align-items: start; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: .9rem; border: 0; padding: 0; margin: 0; min-width: 0; }
+.field > span, .field legend { font-weight: 600; padding: 0; }
+.field small { color: var(--muted); font-weight: 400; }
+input[type="number"], input:not([type]), select {
+  font: inherit; font-size: .92rem; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--ink); max-width: 100%;
+}
+input[type="number"] { width: 110px; }
+.choice { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; margin-right: 12px; cursor: pointer; }
+fieldset.field .choice { margin: 2px 0; }
+fieldset.field select { margin-top: 4px; }
+select:disabled { opacity: .5; }
+.credit { grid-column: 1 / -1; color: var(--muted); }
+
+button.primary {
+  margin-top: 18px; padding: 10px 22px; border: 0; border-radius: 8px; background: var(--navy); color: #fff;
+  font: inherit; font-weight: 700; cursor: pointer;
+}
+button.primary:hover { background: var(--navy-dark); }
+.kbd { margin-left: 10px; }
+
+.results-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.output { position: relative; }
+#outputBtn { padding: 7px 14px; border: 1px solid var(--navy); border-radius: 8px; background: #fff; color: var(--navy); font: inherit; font-weight: 700; cursor: pointer; }
+#outputBtn:hover { background: #eef3f7; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; min-width: 220px; padding: 6px;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 28px rgba(15, 56, 85, .14);
+  display: flex; flex-direction: column;
+}
+.menu[hidden] { display: none; }
+.menu-label { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 10px 4px; }
+.menu button { text-align: left; padding: 7px 10px; border: 0; background: none; border-radius: 6px; font: inherit; font-size: .9rem; cursor: pointer; color: var(--ink); }
+.menu button:hover, .menu button:focus-visible { background: #eef3f7; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 12px 0 14px; flex-wrap: wrap; }
+.tabs button { padding: 8px 14px; border: 0; background: none; font: inherit; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--navy); border-bottom-color: var(--brick); }
+
+.note { background: #f3f7fc; border-left: 3px solid var(--focus); padding: 8px 12px; border-radius: 0 8px 8px 0; font-size: .88rem; }
+.cloud svg { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 8px; }
+.empty { color: var(--muted); padding: 18px 0; }
+
+table.freq { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.freq th, .freq td { padding: 6px 10px; border-bottom: 1px solid #eef1f4; text-align: left; }
+.freq th { color: var(--muted); font-weight: 600; font-size: .82rem; }
+.freq td:first-child { color: var(--muted); width: 3.5rem; }
+.freq .num { text-align: right; width: 45%; position: relative; font-variant-numeric: tabular-nums; }
+.freq td.num .bar { position: absolute; right: 52px; top: 50%; transform: translateY(-50%); height: 10px; max-width: calc(100% - 64px); background: #b7d3f6; border-radius: 3px; }
+
+.intro p { color: var(--ink); font-size: .95rem; margin: 0 0 10px; max-width: 48rem; }
+.footer { max-width: 980px; margin: 0 auto 28px; padding: 14px 20px; font-size: .85rem; color: var(--muted); }
+
+@media (max-width: 600px) {
+  .topbar { padding: 8px 14px; }
+  .brand-sub { display: none; }
+  main { padding: 18px 14px 32px; }
+  h1 { font-size: 1.6rem; }
+  .panel { padding: 14px; }
+  .kbd { display: none; }
+  .freq .num { width: 40%; }
+}
